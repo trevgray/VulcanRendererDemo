@@ -24,7 +24,7 @@ bool Scene0::OnCreate() {
 	int width, height;
 	switch (renderer->getRendererType()){
 	case RendererType::VULKAN:
-		SDL_GetWindowSize(dynamic_cast<VulkanRenderer*>(renderer)->GetWindow(), &width, &height);
+		SDL_GetWindowSize(dynamic_cast<VulkanRenderer*>(renderer)->GetWindow(), &width, &height); //probably should set the window size when we create it
 		aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 		camera->Perspective(45.0f, aspectRatio, 0.5f, 20.0f);
 		camera->SetViewMatrix(MMath::translate(Vec3(0.0f, 0.0f, -5.0f)) * MMath::rotate(0.0f, Vec3(0.0f, 1.0f, 0.0f)));

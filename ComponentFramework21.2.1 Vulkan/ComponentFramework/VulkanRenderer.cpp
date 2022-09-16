@@ -125,7 +125,7 @@ void VulkanRenderer::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugU
 
 void VulkanRenderer::initVulkan() {
     createInstance(); //create a instance of vulkan - setup the driver
-    setupDebugMessenger(); //idk yet
+    setupDebugMessenger(); //
     if (!SDL_Vulkan_CreateSurface(window, instance, &surface)) {
         throw std::runtime_error("failed to create window");
     }
@@ -134,16 +134,16 @@ void VulkanRenderer::initVulkan() {
     createSwapChain(); //set up swap chain - basically double buffer for the display not the frame buffer
     createImageViews(); //a place to draw stuff to
     createRenderPass(); //create the render pass with all the pixel information - create the buffers for the pixel info
-    createDescriptorSetLayout(); //
+    createDescriptorSetLayout(); //Sets up the location and layout for the uniforms in the shader
     createGraphicsPipeline(); //set up a pipeline with a shader - each shader will have its own pipeline
     createCommandPool(); //a command pool holds command buffers
     createDepthResources();
     createFramebuffers(); //create a frame buffer which is the 
-    createTextureImage(); //loads a image and move it into the gpu
+    createTextureImage("./textures/mario_main.png"); //loads a image and moves it into the gpu
     createTextureImageView();
     createTextureSampler(); //how the images is interpreted
-    loadModel(MODEL_PATH.c_str()); //using tiny obj to load the model
-    createVertexBuffer(); //create a vertex buffer and preform vertex deduplaction
+    loadModel("./meshes/Mario.obj"); //using tiny obj to load the model
+    createVertexBuffer(); //create a vertex buffer and preform vertex deduplication
     createIndexBuffer(); //build the index buffer
     createUniformBuffers(); //build uniforms for the shaders
     createDescriptorPool();
@@ -155,17 +155,17 @@ void VulkanRenderer::initVulkan() {
 
 
 void VulkanRenderer::cleanupSwapChain() {
-    vkDestroyImageView(device, depthImageView, nullptr);
-    vkDestroyImage(device, depthImage, nullptr);
-    vkFreeMemory(device, depthImageMemory, nullptr);
+    vkDestroyImageView(device, depthImageView, nullptr); //destroy image view
+    vkDestroyImage(device, depthImage, nullptr); //destroy image
+    vkFreeMemory(device, depthImageMemory, nullptr); //free depth memory
 
     for (auto framebuffer : swapChainFramebuffers) {
-        vkDestroyFramebuffer(device, framebuffer, nullptr);
+        vkDestroyFramebuffer(device, framebuffer, nullptr); //destroy swap chains
     }
 
     vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 
-    vkDestroyPipeline(device, graphicsPipeline, nullptr);
+    vkDestroyPipeline(device, graphicsPipeline, nullptr); //kill all the pipelines
     vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
     vkDestroyRenderPass(device, renderPass, nullptr);
 
@@ -176,8 +176,8 @@ void VulkanRenderer::cleanupSwapChain() {
     vkDestroySwapchainKHR(device, swapChain, nullptr);
 
     for (size_t i = 0; i < swapChainImages.size(); i++) {
-        vkDestroyBuffer(device, uniformBuffers[i], nullptr);
-        vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+        vkDestroyBuffer(device, uniformBuffers[i], nullptr); //destroy buffers
+        vkFreeMemory(device, uniformBuffersMemory[i], nullptr); //free memory
     }
 
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);
@@ -226,7 +226,7 @@ void VulkanRenderer::recreateSwapChain() {
 
     SDL_GetWindowSize(window, &width, &height);
 
-    while (width == 0 || height == 0) {
+    while (width == 0 || height == 0) { //if the window size is 0 then things will go wrong so wait
 
         SDL_GetWindowSize(window, &width, &height);
 
@@ -234,11 +234,11 @@ void VulkanRenderer::recreateSwapChain() {
 
     }
 
-    vkDeviceWaitIdle(device);
+    vkDeviceWaitIdle(device); //wait for the gpu to finish processing
 
-    cleanupSwapChain();
+    cleanupSwapChain(); //clean up the swap chain
 
-    createSwapChain();
+    createSwapChain(); //recreate the pipeline
     createImageViews();
     createRenderPass();
     createGraphicsPipeline();
@@ -508,14 +508,14 @@ void VulkanRenderer::createRenderPass() {
 }
 
 void VulkanRenderer::createDescriptorSetLayout() {
-    VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    uboLayoutBinding.binding = 0;
+    VkDescriptorSetLayoutBinding uboLayoutBinding{}; //sets up the layout positions for the shader
+    uboLayoutBinding.binding = 0; //set the binding location
     uboLayoutBinding.descriptorCount = 1;
     uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     uboLayoutBinding.pImmutableSamplers = nullptr;
     uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+    VkDescriptorSetLayoutBinding samplerLayoutBinding{}; //setting up memory locations
     samplerLayoutBinding.binding = 1;
     samplerLayoutBinding.descriptorCount = 1;
     samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -528,12 +528,12 @@ void VulkanRenderer::createDescriptorSetLayout() {
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
     layoutInfo.pBindings = bindings.data();
 
-    if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+    if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) { //committing all the shader memory to the gpu
         throw std::runtime_error("failed to create descriptor set layout!");
     }
 }
 
-void VulkanRenderer::createGraphicsPipeline() { //we are building the pipeline because the opengl driver had the pipeline inside it
+void VulkanRenderer::createGraphicsPipeline() { //we are building the pipeline - the opengl driver had the pipeline inside it
     auto vertShaderCode = readFile("shaders/example27vert.spv"); //read the demo shaders
     auto fragShaderCode = readFile("shaders/example27frag.spv"); //.spv are compiled shaders - it can still be written in glsl
 
@@ -731,10 +731,10 @@ bool VulkanRenderer::hasStencilComponent(VkFormat format) {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
-void VulkanRenderer::createTextureImage() {
-    SDL_Surface* image = IMG_Load(TEXTURE_PATH.c_str());
+void VulkanRenderer::createTextureImage(std::string filename_) {
+    SDL_Surface* image = IMG_Load(filename_.c_str());
     ///image->format
-    VkDeviceSize imageSize = image->w * image->h * 4;
+    VkDeviceSize imageSize = image->w * image->h * 4; //stores only rgba textures - adding rgb textures could be a project to make the renderer better
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
@@ -912,13 +912,13 @@ void VulkanRenderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t 
     endSingleTimeCommands(commandBuffer);
 }
 
-void VulkanRenderer::loadModel(const char* filename) {
+void VulkanRenderer::loadModel(std::string filename_) {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
     std::string warn, err;
 
-    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename)) {
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename_.c_str())) {
         throw std::runtime_error(warn + err);
     }
 
@@ -1252,11 +1252,12 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     //ubo.proj[1][1] *= -1.0f;
     ///ubo.proj[5] *= -1.0f;
 
-    void* data; //set a void pointer to store the data location inside the gpu
+    void* data; //set a void pointer to store the data location inside the gpu - void pointer is a pointer to anything
     //uniformBuffersMemory[currentImage] stores the current image(buffer) that we want to work on
-    vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data); //get the data location inside the gpu to put the ubo - its in a safe memory location inside the gpu
-    memcpy(data, &ubo, sizeof(ubo)); //put the ubo on the gpu
-    vkUnmapMemory(device, uniformBuffersMemory[currentImage]); //get the data location back - the gpu can now use the memory
+    vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(UniformBufferObject), 0, &data); //get the data location inside the gpu to put the ubo - its in a safe memory location inside the gpu
+    //&data gets a pointer of a pointer (address of a pointer) - vkMapMemory could have returned a number, but it puts the address into the data variable
+    memcpy(data, &ubo, sizeof(ubo)); //copys the memory of the ubo into the data location - memcpy(destination, address of structure, size of structure)
+    vkUnmapMemory(device, uniformBuffersMemory[currentImage]); //give the data location back - the gpu can now use the memory
 }
 
 VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code) {

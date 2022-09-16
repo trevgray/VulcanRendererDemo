@@ -2,7 +2,7 @@
 
 
 Camera::Camera() {
-	projection.loadIdentity();
+	projection.loadIdentity(); //it did it automatically; but this just reminds me
 	view.loadIdentity();
 }
 

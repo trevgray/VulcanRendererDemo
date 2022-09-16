@@ -120,7 +120,7 @@ struct UniformBufferObject {
 
 class VulkanRenderer : public Renderer {
 public:
-    /// C11 precautions 
+    /// C11 precautions - delete the auto copier and other things
     VulkanRenderer(const VulkanRenderer&) = delete;  /// Copy constructor
     VulkanRenderer(VulkanRenderer&&) = delete;       /// Move constructor
     VulkanRenderer& operator=(const VulkanRenderer&) = delete; /// Copy operator
@@ -139,7 +139,7 @@ public:
 
 private:
     UniformBufferObject ubo;
-    const size_t MAX_FRAMES_IN_FLIGHT = 2;
+    const size_t MAX_FRAMES_IN_FLIGHT = 2; //double buffering
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
     SDL_Event sdlEvent;
@@ -180,9 +180,6 @@ private:
 
     bool framebufferResized = false;
 
-    std::string TEXTURE_PATH = "./textures/mario_main.png";
-    std::string MODEL_PATH = "./meshes/Mario.obj";
-
     bool hasStencilComponent(VkFormat format);
 
     void initVulkan();
@@ -200,12 +197,12 @@ private:
     void createFramebuffers();
     void createCommandPool();
     void createDepthResources();
-    void createTextureImage();
+    void createTextureImage(std::string filename_);
     void createTextureImageView();
     void createTextureSampler();
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
         VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-    void loadModel(const char* filename);
+    void loadModel(std::string filename_);
     void createVertexBuffer();
         /// A helper function for createVertexBuffer()
         uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
