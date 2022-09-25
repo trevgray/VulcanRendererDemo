@@ -126,16 +126,16 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\frag.spv">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="shaders\vert.spv">
-      <Filter>Resource Files</Filter>
-    </None>
     <None Include="shaders\example27.frag">
       <Filter>Resource Files</Filter>
     </None>
     <None Include="shaders\example27.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\phong.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\phong.vert">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

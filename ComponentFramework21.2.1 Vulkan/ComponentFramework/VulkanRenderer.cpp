@@ -28,9 +28,10 @@ SDL_Window* VulkanRenderer::CreateWindow(std::string name_, int width_, int heig
 }
 
 bool VulkanRenderer::OnCreate(){ 
-    initVulkan(); //initialize vulkan
+    initVulkan(); //initialize Vulcan
     return true;
 }
+
 void VulkanRenderer::OnDestroy() {
     vkDeviceWaitIdle(device); /// Wait for all commands to clear
     cleanup();
@@ -135,7 +136,7 @@ void VulkanRenderer::initVulkan() {
     createImageViews(); //a place to draw stuff to
     createRenderPass(); //create the render pass with all the pixel information - create the buffers for the pixel info
     createDescriptorSetLayout(); //Sets up the location and layout for the uniforms in the shader
-    createGraphicsPipeline(); //set up a pipeline with a shader - each shader will have its own pipeline
+    createGraphicsPipeline("shaders/phongvert.spv", "shaders/phongfrag.spv"); //set up a pipeline with a shader - each shader will have its own pipeline
     createCommandPool(); //a command pool holds command buffers
     createDepthResources();
     createFramebuffers(); //create a frame buffer which is the 
@@ -241,7 +242,7 @@ void VulkanRenderer::recreateSwapChain() {
     createSwapChain(); //recreate the pipeline
     createImageViews();
     createRenderPass();
-    createGraphicsPipeline();
+    createGraphicsPipeline("shaders/phongvert.spv", "shaders/phongfrag.spv");
     createDepthResources();
     createFramebuffers();
     createUniformBuffers();
@@ -533,9 +534,9 @@ void VulkanRenderer::createDescriptorSetLayout() {
     }
 }
 
-void VulkanRenderer::createGraphicsPipeline() { //we are building the pipeline - the opengl driver had the pipeline inside it
-    auto vertShaderCode = readFile("shaders/example27vert.spv"); //read the demo shaders
-    auto fragShaderCode = readFile("shaders/example27frag.spv"); //.spv are compiled shaders - it can still be written in glsl
+void VulkanRenderer::createGraphicsPipeline(std::string vertFilename, std::string fragFilename) { //we are building the pipeline - the opengl driver had the pipeline inside it
+    auto vertShaderCode = readFile(vertFilename); //read the demo shaders
+    auto fragShaderCode = readFile(fragFilename); //.spv are compiled shaders - it can still be written in glsl
 
     VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
@@ -926,20 +927,24 @@ void VulkanRenderer::loadModel(std::string filename_) {
 
     for (const auto& shape : shapes) {
         for (const auto& index : shape.mesh.indices) {
-            Vertex vertex{};
+            Vertex vertex{}; //make a vertex
 
-            vertex.pos = {
-                attrib.vertices[3 * index.vertex_index + 0],
-                attrib.vertices[3 * index.vertex_index + 1],
+            vertex.pos = { //part of the vertex is position
+                attrib.vertices[3 * index.vertex_index + 0], //tinyobj brings in the vertexs as an array were [0] == x, [1] == y, [2] == z, [3] == x, [4] == y, etc
+                attrib.vertices[3 * index.vertex_index + 1], //we shift around the array to make it into our vec3
                 attrib.vertices[3 * index.vertex_index + 2]
             };
 
             vertex.texCoord = {
-                attrib.texcoords[2 * index.texcoord_index + 0],
-                1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+                attrib.texcoords[2 * index.texcoord_index + 0], //x value
+                1.0f - attrib.texcoords[2 * index.texcoord_index + 1] //some algebra to get the alignment right on the y value
             };
 
-            vertex.color = { 1.0f, 1.0f, 1.0f };
+            vertex.normal = {
+                attrib.normals[3 * index.normal_index + 0], //same thing as the vertex stuff, but with the normals
+                attrib.normals[3 * index.normal_index + 1],
+                attrib.normals[3 * index.normal_index + 2]
+            };
 
             if (uniqueVertices.count(vertex) == 0) {
                 uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
@@ -1230,9 +1235,10 @@ void VulkanRenderer::createSyncObjects() {
 
 void VulkanRenderer::SetUBO(const Matrix4& projection, const Matrix4& view, const Matrix4& model) {
     ubo.proj = projection;
+    ubo.proj[5] *= -1.0f;
     ubo.view = view;
     ubo.model = model;
-    ubo.proj[5] *= -1.0f;
+    ubo.lightPos = Vec4(0,0,0,0);
 }
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
@@ -1256,7 +1262,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     //uniformBuffersMemory[currentImage] stores the current image(buffer) that we want to work on
     vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(UniformBufferObject), 0, &data); //get the data location inside the gpu to put the ubo - its in a safe memory location inside the gpu
     //&data gets a pointer of a pointer (address of a pointer) - vkMapMemory could have returned a number, but it puts the address into the data variable
-    memcpy(data, &ubo, sizeof(ubo)); //copys the memory of the ubo into the data location - memcpy(destination, address of structure, size of structure)
+    memcpy(data, &ubo, sizeof(UniformBufferObject)); //copys the memory of the ubo into the data location - memcpy(destination, address of structure, size of structure)
     vkUnmapMemory(device, uniformBuffersMemory[currentImage]); //give the data location back - the gpu can now use the memory
 }
 

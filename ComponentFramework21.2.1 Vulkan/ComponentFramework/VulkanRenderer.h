@@ -61,7 +61,7 @@ struct QueueFamilyIndices {
 
     struct Vertex {
         Vec3 pos;
-        Vec3 color;
+        Vec3 normal;
         Vec2 texCoord;
 
         static VkVertexInputBindingDescription getBindingDescription() {
@@ -83,7 +83,7 @@ struct QueueFamilyIndices {
             attributeDescriptions[1].binding = 0;
             attributeDescriptions[1].location = 1;
             attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-            attributeDescriptions[1].offset = offsetof(Vertex, color);
+            attributeDescriptions[1].offset = offsetof(Vertex, normal);
 
             attributeDescriptions[2].binding = 0;
             attributeDescriptions[2].location = 2;
@@ -93,7 +93,7 @@ struct QueueFamilyIndices {
             return attributeDescriptions;
         }
         bool operator == (const Vertex& other) const {
-            return pos == other.pos && color == other.color && texCoord == other.texCoord;
+            return pos == other.pos && normal == other.normal && texCoord == other.texCoord;
         }
         
     }; /// End of struct Vertex
@@ -103,7 +103,7 @@ struct QueueFamilyIndices {
         template<> struct hash<Vertex> {
             size_t operator()(Vertex const& vertex) const noexcept {
                 size_t hash1 = hash<Vec3>()(vertex.pos);
-                size_t hash2 = hash<Vec3>()(vertex.color);
+                size_t hash2 = hash<Vec3>()(vertex.normal);
                 size_t hash3 = hash<Vec2>()(vertex.texCoord);
                 size_t result = ((hash1 ^ (hash2 << 1)) >> 1) ^ (hash3 << 1);
                 return result;
@@ -116,6 +116,7 @@ struct UniformBufferObject {
     Matrix4 model;
     Matrix4 view;
     Matrix4 proj;
+    Vec4 lightPos;
 };
 
 class VulkanRenderer : public Renderer {
@@ -193,7 +194,7 @@ private:
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
     void createRenderPass();
     void createDescriptorSetLayout();
-    void createGraphicsPipeline();
+    void createGraphicsPipeline(std::string vFilename, std::string fragFilename);
     void createFramebuffers();
     void createCommandPool();
     void createDepthResources();
