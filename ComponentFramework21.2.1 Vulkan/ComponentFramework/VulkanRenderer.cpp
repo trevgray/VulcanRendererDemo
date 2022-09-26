@@ -136,7 +136,7 @@ void VulkanRenderer::initVulkan() {
     createImageViews(); //a place to draw stuff to
     createRenderPass(); //create the render pass with all the pixel information - create the buffers for the pixel info
     createDescriptorSetLayout(); //Sets up the location and layout for the uniforms in the shader
-    createGraphicsPipeline("shaders/phongvert.spv", "shaders/phongfrag.spv"); //set up a pipeline with a shader - each shader will have its own pipeline
+    createGraphicsPipeline("shaders/phong.vert.spv", "shaders/phong.frag.spv"); //set up a pipeline with a shader - each shader will have its own pipeline
     createCommandPool(); //a command pool holds command buffers
     createDepthResources();
     createFramebuffers(); //create a frame buffer which is the 
@@ -242,7 +242,7 @@ void VulkanRenderer::recreateSwapChain() {
     createSwapChain(); //recreate the pipeline
     createImageViews();
     createRenderPass();
-    createGraphicsPipeline("shaders/phongvert.spv", "shaders/phongfrag.spv");
+    createGraphicsPipeline("shaders/phong.vert.spv", "shaders/phong.frag.spv");
     createDepthResources();
     createFramebuffers();
     createUniformBuffers();
@@ -1238,7 +1238,9 @@ void VulkanRenderer::SetUBO(const Matrix4& projection, const Matrix4& view, cons
     ubo.proj[5] *= -1.0f;
     ubo.view = view;
     ubo.model = model;
-    ubo.lightPos = Vec4(0,0,0,0);
+    ubo.lightPos[0] = Vec4(150,0,0,0);
+    ubo.lightPos[1] = Vec4(-150,0,0,0);
+    ubo.lightPos[2] = Vec4(0,150,0,0);
 }
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
