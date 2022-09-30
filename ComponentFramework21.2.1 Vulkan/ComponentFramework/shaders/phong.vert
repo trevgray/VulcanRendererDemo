@@ -9,11 +9,8 @@ layout(binding = 0) uniform UniformBufferObject { //uniform buffer
     mat4 model;
     mat4 view;
     mat4 proj;
+	vec4 lightPos[3];
 } ubo;
-
-layout(binding = 0) uniform UniformLightBuffer { //uniform buffer
-    vec4 lightPos[3];
-} ulb;
 
 layout (location = 0) out vec3 vertNormal;
 layout (location = 1) out vec3 lightDir[3];
@@ -29,7 +26,7 @@ void main() {
 	vec3 vertDir = normalize(vertPos);
 	eyeDir = -vertDir;
 	for (int lightLoop = 0; lightLoop < 3; lightLoop++) {
- 	lightDir[lightLoop] = normalize(vec3(ulb.lightPos[lightLoop]) - vertPos); /// Create the light direction. I do the math with in class 
+ 	lightDir[lightLoop] = normalize(vec3(ubo.lightPos[lightLoop]) - vertPos); /// Create the light direction. I do the math with in class 
 	//vec3(ubo.lightPos) will downcast or ubo.lightPos.xyz will do the same
 	}
 	gl_Position =  ubo.proj * ubo.view * ubo.model * vVertex; 

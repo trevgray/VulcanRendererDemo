@@ -116,9 +116,6 @@ struct UniformBufferObject {
     Matrix4 model;
     Matrix4 view;
     Matrix4 proj;
-};
-
-struct UniformLightBuffer {
     Vec4 lightPos[3];
 };
 
@@ -143,7 +140,6 @@ public:
 
 private:
     UniformBufferObject ubo;
-    UniformLightBuffer ulb;
     const size_t MAX_FRAMES_IN_FLIGHT = 2; //double buffering
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;

@@ -998,7 +998,7 @@ void VulkanRenderer::createIndexBuffer() {
 }
 
 void VulkanRenderer::createUniformBuffers() {
-    VkDeviceSize bufferSize = sizeof(UniformBufferObject) + sizeof(UniformLightBuffer);
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
     uniformBuffers.resize(swapChainImages.size());
     uniformBuffersMemory.resize(swapChainImages.size());
@@ -1043,7 +1043,7 @@ void VulkanRenderer::createDescriptorSets() {
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = uniformBuffers[i];
         bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(UniformBufferObject) + sizeof(UniformLightBuffer);
+        bufferInfo.range = sizeof(UniformBufferObject);
 
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1238,10 +1238,9 @@ void VulkanRenderer::SetUBO(const Matrix4& projection, const Matrix4& view, cons
     ubo.proj[5] *= -1.0f;
     ubo.view = view;
     ubo.model = model;
-
-    ulb.lightPos[0] = Vec4(150,0,0,0);
-    ulb.lightPos[1] = Vec4(-150,0,0,0);
-    ulb.lightPos[2] = Vec4(0,150,0,0);
+    ubo.lightPos[0] = Vec4(150,0,0,0);
+    ubo.lightPos[1] = Vec4(-150,0,0,0);
+    ubo.lightPos[2] = Vec4(0,150,0,0);
 }
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
@@ -1267,10 +1266,6 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     //&data gets a pointer of a pointer (address of a pointer) - vkMapMemory could have returned a number, but it puts the address into the data variable
     memcpy(data, &ubo, sizeof(UniformBufferObject)); //copys the memory of the ubo into the data location - memcpy(destination, address of structure, size of structure)
     vkUnmapMemory(device, uniformBuffersMemory[currentImage]); //give the data location back - the gpu can now use the memory
-
-    vkMapMemory(device, uniformBuffersMemory[currentImage], sizeof(UniformBufferObject), sizeof(UniformLightBuffer), 0, &data);
-    memcpy(data, &ulb, sizeof(UniformLightBuffer));
-    vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
 }
 
 VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code) {
