@@ -179,6 +179,9 @@ void VulkanRenderer::cleanupSwapChain() {
     for (size_t i = 0; i < swapChainImages.size(); i++) {
         vkDestroyBuffer(device, uniformBuffers[i], nullptr); //destroy buffers
         vkFreeMemory(device, uniformBuffersMemory[i], nullptr); //free memory
+
+        vkDestroyBuffer(device, uniformLightBuffer[i], nullptr); //destroy buffers
+        vkFreeMemory(device, uniformLightBufferMemory[i], nullptr); //free memory
     }
 
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);
@@ -1005,13 +1008,22 @@ void VulkanRenderer::createIndexBuffer() {
 }
 
 void VulkanRenderer::createUniformBuffers() {
-    VkDeviceSize bufferSize = sizeof(UniformBufferObject) + sizeof(UniformLightBuffer);
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
     uniformBuffers.resize(swapChainImages.size());
     uniformBuffersMemory.resize(swapChainImages.size());
 
     for (size_t i = 0; i < swapChainImages.size(); i++) {
         createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
+    }
+
+    bufferSize = sizeof(UniformLightBuffer);
+
+    uniformLightBuffer.resize(swapChainImages.size());
+    uniformLightBufferMemory.resize(swapChainImages.size());
+
+    for (size_t i = 0; i < swapChainImages.size(); i++) {
+        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformLightBuffer[i], uniformLightBufferMemory[i]);
     }
 }
 
@@ -1054,10 +1066,10 @@ void VulkanRenderer::createDescriptorSets() {
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 
-        VkDescriptorBufferInfo bufferInfo2{};
-        bufferInfo2.buffer = uniformBuffers[i];
-        bufferInfo2.offset = 0;
-        bufferInfo2.range = sizeof(UniformLightBuffer);
+        VkDescriptorBufferInfo lightBufferInfo{};
+        lightBufferInfo.buffer = uniformLightBuffer[i];
+        lightBufferInfo.offset = 0;
+        lightBufferInfo.range = sizeof(UniformLightBuffer);
 
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1084,11 +1096,11 @@ void VulkanRenderer::createDescriptorSets() {
 
         descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[2].dstSet = descriptorSets[i];
-        descriptorWrites[2].dstBinding = 0;
+        descriptorWrites[2].dstBinding = 2;
         descriptorWrites[2].dstArrayElement = 0;
         descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         descriptorWrites[2].descriptorCount = 1;
-        descriptorWrites[2].pBufferInfo = &bufferInfo2;
+        descriptorWrites[2].pBufferInfo = &lightBufferInfo;
 
         vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
@@ -1262,8 +1274,8 @@ void VulkanRenderer::SetUBO(const Matrix4& projection, const Matrix4& view, cons
     ubo.model = model;
 
     ulb.lightPos[0] = Vec4(150,0,0,0);
-    ulb.lightPos[1] = Vec4(-150,0,0,0);
-    ulb.lightPos[2] = Vec4(0,150,0,0);
+    ulb.lightPos[1] = Vec4(-150, 0,0,0);
+    ulb.lightPos[2] = Vec4(0, 150,0,0);
 }
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
@@ -1285,15 +1297,14 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
 
     void* data; //set a void pointer to store the data location inside the gpu - void pointer is a pointer to anything
     //uniformBuffersMemory[currentImage] stores the current image(buffer) that we want to work on
-    vkMapMemory(device, uniformBuffersMemory[currentImage], 0, 0, sizeof(UniformBufferObject), &data); //get the data location inside the gpu to put the ubo - its in a safe memory location inside the gpu
+    vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(UniformBufferObject), 0, &data); //get the data location inside the gpu to put the ubo - its in a safe memory location inside the gpu
     //&data gets a pointer of a pointer (address of a pointer) - vkMapMemory could have returned a number, but it puts the address into the data variable
     memcpy(data, &ubo, sizeof(UniformBufferObject)); //copys the memory of the ubo into the data location - memcpy(destination, address of structure, size of structure)
     vkUnmapMemory(device, uniformBuffersMemory[currentImage]); //give the data location back - the gpu can now use the memory
 
-    //vkMapMemory(device, uniformBuffersMemory[currentImage], 1, sizeof(UniformBufferObject), sizeof(UniformLightBuffer), &data);
-    vkMapMemory(device, uniformBuffersMemory[currentImage], 0, 0, sizeof(UniformLightBuffer), &data);
+    vkMapMemory(device, uniformLightBufferMemory[currentImage], 0, sizeof(UniformLightBuffer), 0, &data);
     memcpy(data, &ulb, sizeof(UniformLightBuffer));
-    vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
+    vkUnmapMemory(device, uniformLightBufferMemory[currentImage]);
 }
 
 VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code) {

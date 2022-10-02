@@ -176,6 +176,10 @@ private:
 
     std::vector<VkBuffer> uniformBuffers;
     std::vector<VkDeviceMemory> uniformBuffersMemory;
+
+    std::vector<VkBuffer> uniformLightBuffer;
+    std::vector<VkDeviceMemory> uniformLightBufferMemory;
+
     std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;

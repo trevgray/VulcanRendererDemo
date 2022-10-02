@@ -29,9 +29,9 @@ void main() {
 	vec3 vertDir = normalize(vertPos);
 	eyeDir = -vertDir;
 	for (int lightLoop = 0; lightLoop < 3; lightLoop++) {
- 	//lightDir[lightLoop] = normalize(vec3(ulb.lightPos[lightLoop]) - vertPos); /// Create the light direction. I do the math with in class 
-	lightDir[lightLoop] = normalize(vec3(0.0,1.0,0.0) - vertPos);
-	//vec3(ubo.lightPos) will downcast or ubo.lightPos.xyz will do the same
+ 		lightDir[lightLoop] = normalize(vec3(ulb.lightPos[lightLoop]) - vertPos); /// Create the light direction. I do the math with in class 
+		//lightDir[lightLoop] = normalize(vec3(0.0,1.0,0.0) - vertPos);
+		//vec3(ubo.lightPos) will downcast or ubo.lightPos.xyz will do the same
 	}
 	gl_Position =  ubo.proj * ubo.view * ubo.model * vVertex; 
 }
