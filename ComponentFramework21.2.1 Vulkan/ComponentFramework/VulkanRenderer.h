@@ -77,7 +77,7 @@ struct QueueFamilyIndices {
 
             attributeDescriptions[0].binding = 0;
             attributeDescriptions[0].location = 0;
-            attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT; //vulkan format for floating point vec3
+            attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT; //vulkan format for floating point vec3 - 3 floating point values
             attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
             attributeDescriptions[1].binding = 0;
@@ -92,21 +92,20 @@ struct QueueFamilyIndices {
 
             return attributeDescriptions;
         }
-
-        bool operator == (const Vertex& other) const { //check if another vertex is the same
+        bool operator == (const Vertex& other) const { //check if another vertex is the same - there is a lot of ways a vertex can be the same as another(mag,direction), so I did the overload here and not the vertex class
             return pos == other.pos && normal == other.normal && texCoord == other.texCoord;
         }
         
     }; /// End of struct Vertex
 
 
-    namespace std { //namespace injection
+    namespace std {
         template<> struct hash<Vertex> {
             size_t operator()(Vertex const& vertex) const noexcept { //overload the () 
                 size_t hash1 = hash<Vec3>()(vertex.pos); //create a hash of the vertex pos
                 size_t hash2 = hash<Vec3>()(vertex.normal);
                 size_t hash3 = hash<Vec2>()(vertex.texCoord);
-                size_t result = ((hash1 ^ (hash2 << 1)) >> 1) ^ (hash3 << 1); //teacher does not remember this
+                size_t result = ((hash1 ^ (hash2 << 1)) >> 1) ^ (hash3 << 1); //teacher could not explain this code
                 return result;
             }
         };
@@ -117,6 +116,9 @@ struct UniformBufferObject {
     Matrix4 model;
     Matrix4 view;
     Matrix4 proj;
+};
+
+struct UniformLightBuffer {
     Vec4 lightPos[3];
 };
 
@@ -141,6 +143,7 @@ public:
 
 private:
     UniformBufferObject ubo;
+    UniformLightBuffer ulb;
     const size_t MAX_FRAMES_IN_FLIGHT = 2; //double buffering
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -173,6 +176,10 @@ private:
 
     std::vector<VkBuffer> uniformBuffers;
     std::vector<VkDeviceMemory> uniformBuffersMemory;
+
+    std::vector<VkBuffer> uniformLightBuffer;
+    std::vector<VkDeviceMemory> uniformLightBufferMemory;
+
     std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;

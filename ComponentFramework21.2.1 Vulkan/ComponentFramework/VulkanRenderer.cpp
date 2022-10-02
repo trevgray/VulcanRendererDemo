@@ -179,6 +179,9 @@ void VulkanRenderer::cleanupSwapChain() {
     for (size_t i = 0; i < swapChainImages.size(); i++) {
         vkDestroyBuffer(device, uniformBuffers[i], nullptr); //destroy buffers
         vkFreeMemory(device, uniformBuffersMemory[i], nullptr); //free memory
+
+        vkDestroyBuffer(device, uniformLightBuffer[i], nullptr); //destroy buffers
+        vkFreeMemory(device, uniformLightBufferMemory[i], nullptr); //free memory
     }
 
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);
@@ -523,7 +526,14 @@ void VulkanRenderer::createDescriptorSetLayout() {
     samplerLayoutBinding.pImmutableSamplers = nullptr;
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
+    VkDescriptorSetLayoutBinding lightLayoutBinding{}; //setting up layout locations
+    lightLayoutBinding.binding = 2;
+    lightLayoutBinding.descriptorCount = 1;
+    lightLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    lightLayoutBinding.pImmutableSamplers = nullptr;
+    lightLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    std::array<VkDescriptorSetLayoutBinding, 3> bindings = { uboLayoutBinding, samplerLayoutBinding, lightLayoutBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -957,8 +967,7 @@ void VulkanRenderer::loadModel(std::string filename_) {
 }
 
 void VulkanRenderer::createVertexBuffer() {
-    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-                            //sizeof(Vertex)
+    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size(); //sizeof(Vertex) * numOfVertices
     VkBuffer stagingBuffer; //handles to these buffers
     VkDeviceMemory stagingBufferMemory;
                                                                                                                        // these are being pulled in by reference, be constatant
@@ -969,7 +978,7 @@ void VulkanRenderer::createVertexBuffer() {
     memcpy(data, vertices.data(), (size_t)bufferSize);
     vkUnmapMemory(device, stagingBufferMemory);
 
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory); //create permanent buffer
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
 
     copyBuffer(stagingBuffer, vertexBuffer, bufferSize); //copy all the staging buffer into the vertex buffer
 
@@ -1006,14 +1015,25 @@ void VulkanRenderer::createUniformBuffers() {
     for (size_t i = 0; i < swapChainImages.size(); i++) { //create the buffer inside each swap chain
         createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
     }
+
+    bufferSize = sizeof(UniformLightBuffer);
+
+    uniformLightBuffer.resize(swapChainImages.size());
+    uniformLightBufferMemory.resize(swapChainImages.size());
+
+    for (size_t i = 0; i < swapChainImages.size(); i++) {
+        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformLightBuffer[i], uniformLightBufferMemory[i]);
+    }
 }
 
 void VulkanRenderer::createDescriptorPool() {
-    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+    std::array<VkDescriptorPoolSize, 3> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(swapChainImages.size());
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[1].descriptorCount = static_cast<uint32_t>(swapChainImages.size());
+    poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[2].descriptorCount = static_cast<uint32_t>(swapChainImages.size());
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1045,12 +1065,17 @@ void VulkanRenderer::createDescriptorSets() {
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 
+        VkDescriptorBufferInfo lightBufferInfo{};
+        lightBufferInfo.buffer = uniformLightBuffer[i];
+        lightBufferInfo.offset = 0;
+        lightBufferInfo.range = sizeof(UniformLightBuffer);
+
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         imageInfo.imageView = textureImageView;
         imageInfo.sampler = textureSampler;
 
-        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
 
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = descriptorSets[i];
@@ -1067,6 +1092,14 @@ void VulkanRenderer::createDescriptorSets() {
         descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         descriptorWrites[1].descriptorCount = 1;
         descriptorWrites[1].pImageInfo = &imageInfo;
+
+        descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[2].dstSet = descriptorSets[i];
+        descriptorWrites[2].dstBinding = 2;
+        descriptorWrites[2].dstArrayElement = 0;
+        descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrites[2].descriptorCount = 1;
+        descriptorWrites[2].pBufferInfo = &lightBufferInfo;
 
         vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
@@ -1238,9 +1271,10 @@ void VulkanRenderer::SetUBO(const Matrix4& projection, const Matrix4& view, cons
     ubo.proj[5] *= -1.0f;
     ubo.view = view;
     ubo.model = model;
-    ubo.lightPos[0] = Vec4(150,0,0,0);
-    ubo.lightPos[1] = Vec4(-150,0,0,0);
-    ubo.lightPos[2] = Vec4(0,150,0,0);
+
+    ulb.lightPos[0] = Vec4(150,0,0,0);
+    ulb.lightPos[1] = Vec4(-150, 0,0,0);
+    ulb.lightPos[2] = Vec4(0, 150,0,0);
 }
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
@@ -1266,6 +1300,10 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     //&data gets a pointer of a pointer (address of a pointer) - vkMapMemory could have returned a number, but it puts the address into the data variable
     memcpy(data, &ubo, sizeof(UniformBufferObject)); //copys the memory of the ubo into the data location - memcpy(destination, address of structure, size of structure)
     vkUnmapMemory(device, uniformBuffersMemory[currentImage]); //give the data location back - the gpu can now use the memory
+
+    vkMapMemory(device, uniformLightBufferMemory[currentImage], 0, sizeof(UniformLightBuffer), 0, &data);
+    memcpy(data, &ulb, sizeof(UniformLightBuffer));
+    vkUnmapMemory(device, uniformLightBufferMemory[currentImage]);
 }
 
 VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code) {
