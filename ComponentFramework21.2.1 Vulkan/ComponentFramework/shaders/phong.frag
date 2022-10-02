@@ -5,16 +5,20 @@ layout (location = 0) in  vec3 vertNormal;
 layout (location = 1) in  vec3 lightDir[4];
 layout (location = 5) in  vec3 eyeDir;
 layout (location = 6) in vec2 fragTextureCoords;
-layout (location = 7) in vec4 kd[4];
 
 layout(binding = 1) uniform sampler2D texSampler;
+
+layout(binding = 2) uniform UniformLightBuffer {
+	vec4 lightPos[4];
+	vec4 lightColour[4];
+} ulb;
 
 layout (location = 0) out vec4 fragColor;
 
 void main() { 
 	const vec4 ks = vec4(0.2, 0.2, 0.2, 0.0); //specular
 	//vec4 kd[4] = {vec4(0.4, 0.1, 0.1, 0.0), vec4(0.1, 0.1, 0.4, 0.0), vec4(0.1, 0.4, 0.1, 0.0), vec4(0.1, 0.1, 0.1, 0.0)}; //colour of light - const means it cannot be changed just like C++
-	vec4 ka[4] = {0.01 * kd[0], 0.01 * kd[1], 0.01 * kd[2], 0.01 * kd[3]}; //ambient light
+	vec4 ka[4] = {0.01 * ulb.lightColour[0], 0.01 * ulb.lightColour[1], 0.01 * ulb.lightColour[2], 0.01 * ulb.lightColour[3]}; //ambient light
 
 	vec4 texColour = texture(texSampler, fragTextureCoords);
 	fragColor = vec4(0,0,0,0);
@@ -28,6 +32,6 @@ void main() {
 		if(diff > 0.0){
 			spec = pow(spec,14.0);
 		}
-	fragColor += ka[lightLoop] + (diff * kd[lightLoop] * texColour) + (spec * ks); //phong shading
+	fragColor += ka[lightLoop] + (diff * ulb.lightColour[lightLoop] * texColour) + (spec * ks); //phong shading
 	}
 } 

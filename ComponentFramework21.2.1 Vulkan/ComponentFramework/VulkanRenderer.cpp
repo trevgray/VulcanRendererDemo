@@ -531,7 +531,7 @@ void VulkanRenderer::createDescriptorSetLayout() {
     lightLayoutBinding.descriptorCount = 1;
     lightLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     lightLayoutBinding.pImmutableSamplers = nullptr;
-    lightLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    lightLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS; //set for both vertex and frag https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkShaderStageFlagBits.html
 
     std::array<VkDescriptorSetLayoutBinding, 3> bindings = { uboLayoutBinding, samplerLayoutBinding, lightLayoutBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
