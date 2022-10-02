@@ -119,7 +119,8 @@ struct UniformBufferObject {
 };
 
 struct UniformLightBuffer {
-    Vec4 lightPos[3];
+    Vec4 lightPos[4];
+    Vec4 lightColour[4];
 };
 
 class VulkanRenderer : public Renderer {
@@ -137,6 +138,7 @@ public:
     void OnDestroy();
     void Render();
     void SetUBO(const Matrix4& projection, const Matrix4& view, const Matrix4& model);
+    void SetULB(const Vec4 lightArray[4], const Vec4 colourArray[4]);
     SDL_Window* GetWindow() {
         return window;
     }

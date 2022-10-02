@@ -12,13 +12,15 @@ layout(binding = 0) uniform UniformBufferObject { //uniform buffer
 } ubo;
 
 layout(binding = 2) uniform UniformLightBuffer { //uniform buffer
-	vec4 lightPos[3];
+	vec4 lightPos[4];
+	vec4 lightColour[4];
 } ulb;
 
 layout (location = 0) out vec3 vertNormal;
-layout (location = 1) out vec3 lightDir[3];
-layout (location = 4) out vec3 eyeDir;
-layout (location = 5) out vec2 fragTextureCoords; //aka uv coords 
+layout (location = 1) out vec3 lightDir[4];
+layout (location = 5) out vec3 eyeDir;
+layout (location = 6) out vec2 fragTextureCoords; //aka uv coords 
+layout (location = 7) out vec4 kd[4];
 //uniform mat3 normalMatrix;
 
 void main() {
@@ -28,10 +30,10 @@ void main() {
 	vec3 vertPos = vec3(ubo.view * ubo.model * vVertex); /// This is the position of the vertex from the origin
 	vec3 vertDir = normalize(vertPos);
 	eyeDir = -vertDir;
-	for (int lightLoop = 0; lightLoop < 3; lightLoop++) {
+	for (int lightLoop = 0; lightLoop < 4; lightLoop++) {
  		lightDir[lightLoop] = normalize(vec3(ulb.lightPos[lightLoop]) - vertPos); /// Create the light direction. I do the math with in class 
-		//lightDir[lightLoop] = normalize(vec3(0.0,1.0,0.0) - vertPos);
 		//vec3(ubo.lightPos) will downcast or ubo.lightPos.xyz will do the same
+		kd[lightLoop] = ulb.lightColour[lightLoop]; //pass the light through
 	}
 	gl_Position =  ubo.proj * ubo.view * ubo.model * vVertex; 
 }

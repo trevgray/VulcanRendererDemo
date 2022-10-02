@@ -1271,10 +1271,19 @@ void VulkanRenderer::SetUBO(const Matrix4& projection, const Matrix4& view, cons
     ubo.proj[5] *= -1.0f;
     ubo.view = view;
     ubo.model = model;
+}
 
-    ulb.lightPos[0] = Vec4(150,0,0,0);
-    ulb.lightPos[1] = Vec4(-150, 0,0,0);
-    ulb.lightPos[2] = Vec4(0, 150,0,0);
+void VulkanRenderer::SetULB(const Vec4 lightArray_[4], const Vec4 colourArray_[4]) {
+    //light position
+    ulb.lightPos[0] = lightArray_[0];
+    ulb.lightPos[1] = lightArray_[1];
+    ulb.lightPos[2] = lightArray_[2];
+    ulb.lightPos[3] = lightArray_[3];
+    //light colour
+    ulb.lightColour[0] = colourArray_[0];
+    ulb.lightColour[1] = colourArray_[1];
+    ulb.lightColour[2] = colourArray_[2];
+    ulb.lightColour[3] = colourArray_[3];
 }
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
