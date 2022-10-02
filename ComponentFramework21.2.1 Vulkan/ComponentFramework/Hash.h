@@ -4,9 +4,9 @@
 #include "Vector.h"
 
 namespace MATH {
-	static void combineHashes(size_t& seed, size_t hash) {
-		hash += 0x9e3779b9 + (seed << 6) + (seed >> 2);
-		seed ^= hash;
+	static void combineHashes(size_t& seed, size_t hash) { //0x9e3779b9 is the magic hashing number
+		hash += 0x9e3779b9 + (seed << 6) + (seed >> 2); //shift the bit 6 over right, then 2 over left
+		seed ^= hash; //xor
 	}
 
 	/*inline  bool equal_to (Vec2 const& v1, Vec2 const& v2) {

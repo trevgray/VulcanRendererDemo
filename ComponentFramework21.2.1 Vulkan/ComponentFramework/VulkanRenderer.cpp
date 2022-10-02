@@ -571,7 +571,7 @@ void VulkanRenderer::createGraphicsPipeline(std::string vertFilename, std::strin
     auto bindingDescription = Vertex::getBindingDescription();
     auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.vertexBindingDescriptionCount = 1; //num of objects
     vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
     vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
     vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
@@ -945,18 +945,18 @@ void VulkanRenderer::loadModel(std::string filename_) {
                 attrib.vertices[3 * index.vertex_index + 2]
             };
 
-            vertex.texCoord = {
-                attrib.texcoords[2 * index.texcoord_index + 0], //x value
-                1.0f - attrib.texcoords[2 * index.texcoord_index + 1] //some algebra to get the alignment right on the y value
-            };
-
             vertex.normal = {
                 attrib.normals[3 * index.normal_index + 0], //same thing as the vertex stuff, but with the normals
                 attrib.normals[3 * index.normal_index + 1],
                 attrib.normals[3 * index.normal_index + 2]
             };
 
-            if (uniqueVertices.count(vertex) == 0) {
+            vertex.texCoord = {
+                attrib.texcoords[2 * index.texcoord_index + 0], //x value
+                1.0f - attrib.texcoords[2 * index.texcoord_index + 1] //some algebra to get the alignment right on the y value
+            };
+
+            if (uniqueVertices.count(vertex) == 0) { //look through the unordered map and try to find the vertex - if == 0 then vertex was not found - step into to see the hash function
                 uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
                 vertices.push_back(vertex);
             }
@@ -967,21 +967,20 @@ void VulkanRenderer::loadModel(std::string filename_) {
 }
 
 void VulkanRenderer::createVertexBuffer() {
-    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-
-    VkBuffer stagingBuffer;
+    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size(); //sizeof(Vertex) * numOfVertices
+    VkBuffer stagingBuffer; //handles to these buffers
     VkDeviceMemory stagingBufferMemory;
                                                                                                                        // these are being pulled in by reference, be constatant
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
     void* data;
-    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data); //staging memory is the memory we have access too
     memcpy(data, vertices.data(), (size_t)bufferSize);
     vkUnmapMemory(device, stagingBufferMemory);
 
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
 
-    copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+    copyBuffer(stagingBuffer, vertexBuffer, bufferSize); //copy all the staging buffer into the vertex buffer
 
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingBufferMemory, nullptr);
@@ -1013,7 +1012,7 @@ void VulkanRenderer::createUniformBuffers() {
     uniformBuffers.resize(swapChainImages.size());
     uniformBuffersMemory.resize(swapChainImages.size());
 
-    for (size_t i = 0; i < swapChainImages.size(); i++) {
+    for (size_t i = 0; i < swapChainImages.size(); i++) { //create the buffer inside each swap chain
         createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
     }
 

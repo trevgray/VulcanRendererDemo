@@ -77,7 +77,7 @@ struct QueueFamilyIndices {
 
             attributeDescriptions[0].binding = 0;
             attributeDescriptions[0].location = 0;
-            attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+            attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT; //vulkan format for floating point vec3 - 3 floating point values
             attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
             attributeDescriptions[1].binding = 0;
@@ -92,7 +92,7 @@ struct QueueFamilyIndices {
 
             return attributeDescriptions;
         }
-        bool operator == (const Vertex& other) const {
+        bool operator == (const Vertex& other) const { //check if another vertex is the same - there is a lot of ways a vertex can be the same as another(mag,direction), so I did the overload here and not the vertex class
             return pos == other.pos && normal == other.normal && texCoord == other.texCoord;
         }
         
@@ -101,11 +101,11 @@ struct QueueFamilyIndices {
 
     namespace std {
         template<> struct hash<Vertex> {
-            size_t operator()(Vertex const& vertex) const noexcept {
-                size_t hash1 = hash<Vec3>()(vertex.pos);
+            size_t operator()(Vertex const& vertex) const noexcept { //overload the () 
+                size_t hash1 = hash<Vec3>()(vertex.pos); //create a hash of the vertex pos
                 size_t hash2 = hash<Vec3>()(vertex.normal);
                 size_t hash3 = hash<Vec2>()(vertex.texCoord);
-                size_t result = ((hash1 ^ (hash2 << 1)) >> 1) ^ (hash3 << 1);
+                size_t result = ((hash1 ^ (hash2 << 1)) >> 1) ^ (hash3 << 1); //teacher could not explain this code
                 return result;
             }
         };
