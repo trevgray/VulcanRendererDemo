@@ -123,6 +123,11 @@ struct UniformLightBuffer {
     Vec4 lightColour[4];
 };
 
+struct MeshPushConstants {
+    Matrix4 model;
+    //Matrix4 normal; //it could be a matrix3 because it just rotation
+};
+
 class VulkanRenderer : public Renderer {
 public:
     /// C11 precautions - delete the auto copier and other things
@@ -146,6 +151,7 @@ public:
 private:
     UniformBufferObject ubo;
     UniformLightBuffer ulb;
+    MeshPushConstants mpc;
     const size_t MAX_FRAMES_IN_FLIGHT = 2; //double buffering
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;

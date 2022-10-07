@@ -16,6 +16,10 @@ layout(binding = 2) uniform UniformLightBuffer {
 	vec4 lightColour[4];
 } ulb;
 
+layout (push_constant) uniform MeshPushConstants {
+	mat4 model;
+} mpc;
+
 layout (location = 0) out vec3 vertNormal;
 layout (location = 1) out vec3 lightDir[4];
 layout (location = 5) out vec3 eyeDir;
@@ -24,15 +28,14 @@ layout (location = 6) out vec2 fragTextureCoords; //aka uv coords
 
 void main() {
 	fragTextureCoords = texCoord;
-	mat3 normalMatrix = mat3(transpose(inverse(ubo.model)));
+	mat3 normalMatrix = mat3(transpose(inverse(mpc.model))); //we should pass the normal matrix - this basically 
 	vertNormal = normalize(normalMatrix * vNormal.xyz); /// Rotate the normal to the correct orientation 
-	vec3 vertPos = vec3(ubo.view * ubo.model * vVertex); /// This is the position of the vertex from the origin
+	vec3 vertPos = vec3(ubo.view * mpc.model * vVertex); /// This is the position of the vertex from the origin
 	vec3 vertDir = normalize(vertPos);
 	eyeDir = -vertDir;
 	for (int lightLoop = 0; lightLoop < 4; lightLoop++) {
  		lightDir[lightLoop] = normalize(vec3(ulb.lightPos[lightLoop]) - vertPos); /// Create the light direction. I do the math with in class 
 		//vec3(ubo.lightPos) will downcast or ubo.lightPos.xyz will do the same
-		//kd[lightLoop] = ulb.lightColour[lightLoop]; //pass the light through
 	}
-	gl_Position =  ubo.proj * ubo.view * ubo.model * vVertex; 
+	gl_Position =  ubo.proj * ubo.view * mpc.model * vVertex; //you could do render_matrix * vVertex; - but we need the view to find the vertPos so why not
 }

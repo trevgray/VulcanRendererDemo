@@ -38,20 +38,20 @@ void VulkanRenderer::OnDestroy() {
 }
 
 void VulkanRenderer::Render() {
-    vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+    vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX); //before we can make a call, we have to wait for the block on the gpu to sync up - UINT64_MAX means maximum time
 
     uint32_t imageIndex;
-    VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex); //check if what i am about to draw on is valid
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) { //rebuild all the swap chain, this is similar to resizing the window
         recreateSwapChain();
         return;
     }
-    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) { //if the swapchain can not be rebuilt, we just end the program
         throw std::runtime_error("failed to acquire swap chain image!");
     }
 
-    updateUniformBuffer(imageIndex);
+    updateUniformBuffer(imageIndex); //
 
     if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
         vkWaitForFences(device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
@@ -545,25 +545,25 @@ void VulkanRenderer::createDescriptorSetLayout() {
 }
 
 void VulkanRenderer::createGraphicsPipeline(std::string vertFilename, std::string fragFilename) { //we are building the pipeline - the opengl driver had the pipeline inside it
-    auto vertShaderCode = readFile(vertFilename); //read the demo shaders
+    auto vertShaderCode = readFile(vertFilename); //read the shaders
     auto fragShaderCode = readFile(fragFilename); //.spv are compiled shaders - it can still be written in glsl
 
-    VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
+    VkShaderModule vertShaderModule = createShaderModule(vertShaderCode); //create a shader module
     VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
 
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo{}; //builds up a structure of VkPipelineShaderStageCreateInfo
+    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO; //always put type in
+    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT; //build on the vertex stage - vertex assembly, vertex shader, tessellation controller, tessellation shader, geometry shader, fragment shader
     vertShaderStageInfo.module = vertShaderModule;
     vertShaderStageInfo.pName = "main";
 
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo{}; //these set up structures for the fragment shader and vertex shader
     fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT; //put on the frag stage
     fragShaderStageInfo.module = fragShaderModule;
     fragShaderStageInfo.pName = "main";
 
-    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo }; //array of all shader stages
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -576,46 +576,46 @@ void VulkanRenderer::createGraphicsPipeline(std::string vertFilename, std::strin
     vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
     vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{}; //structure for the PRIMITIVE TOPOLOGY
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; //GL_TRIANGLES basically in Vulkan
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-    VkViewport viewport{};
-    viewport.x = 0.0f;
+    VkViewport viewport{}; //viewport structure
+    viewport.x = 0.0f; //scott has never not seen the viewport.x and .y other than 0 
     viewport.y = 0.0f;
-    viewport.width = (float)swapChainExtent.width;
-    viewport.height = (float)swapChainExtent.height;
-    viewport.minDepth = 0.0f;
+    viewport.width = static_cast<float>(swapChainExtent.width); //get the width and height of the swap chain (window)
+    viewport.height = static_cast<float>(swapChainExtent.height);
+    viewport.minDepth = 0.0f; //z depth of the normalized device coordinates zone
     viewport.maxDepth = 1.0f;
 
-    VkRect2D scissor{};
-    scissor.offset = { 0, 0 };
+    VkRect2D scissor{}; //scissor cuts up the screen
+    scissor.offset = { 0, 0 }; //removes parts of the screen
     scissor.extent = swapChainExtent;
 
-    VkPipelineViewportStateCreateInfo viewportState{};
+    VkPipelineViewportStateCreateInfo viewportState{}; //viewport state combines all the viewports and scissors
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewportState.viewportCount = 1;
     viewportState.pViewports = &viewport;
     viewportState.scissorCount = 1;
     viewportState.pScissors = &scissor;
 
-    VkPipelineRasterizationStateCreateInfo rasterizer{};
+    VkPipelineRasterizationStateCreateInfo rasterizer{}; //rasterizer
     rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rasterizer.depthClampEnable = VK_FALSE;
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT; //cull the back face of objects
+    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; //look at the vertices are layed out
     rasterizer.depthBiasEnable = VK_FALSE;
 
-    VkPipelineMultisampleStateCreateInfo multisampling{};
+    VkPipelineMultisampleStateCreateInfo multisampling{}; //not talking about it
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisampling.sampleShadingEnable = VK_FALSE;
     multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-    VkPipelineDepthStencilStateCreateInfo depthStencil{};
+    VkPipelineDepthStencilStateCreateInfo depthStencil{}; //draw stuff over top of other stuff on the screen (think view model in first person shooter)
     depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     depthStencil.depthTestEnable = VK_TRUE;
     depthStencil.depthWriteEnable = VK_TRUE;
@@ -623,11 +623,11 @@ void VulkanRenderer::createGraphicsPipeline(std::string vertFilename, std::strin
     depthStencil.depthBoundsTestEnable = VK_FALSE;
     depthStencil.stencilTestEnable = VK_FALSE;
 
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{}; //colour blending - can mix colours between different shader passes - transparency maybe? 
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT; //just set the colour to it on screen, just draw on top of each other
     colorBlendAttachment.blendEnable = VK_FALSE;
 
-    VkPipelineColorBlendStateCreateInfo colorBlending{};
+    VkPipelineColorBlendStateCreateInfo colorBlending{}; //set all the blend consts
     colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colorBlending.logicOpEnable = VK_FALSE;
     colorBlending.logicOp = VK_LOGIC_OP_COPY;
@@ -638,12 +638,22 @@ void VulkanRenderer::createGraphicsPipeline(std::string vertFilename, std::strin
     colorBlending.blendConstants[2] = 0.0f;
     colorBlending.blendConstants[3] = 0.0f;
 
+    VkPushConstantRange pushConstant{}; //setup push constants
+    pushConstant.offset = 0; //this push constant range starts at the beginning - stick to Vec4 and Mat4s so we don't make offsets and byte boundaries
+    pushConstant.size = sizeof(MeshPushConstants); //this push constant range takes up the size of a MeshPushConstants struct
+    pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; //this push constant range is accessible only in the vertex shader
+
+    //we start from just the default empty pipeline layout info
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    //descriptor sets
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
+    //push constants
+    pipelineLayoutInfo.pushConstantRangeCount = 1;
+    pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
 
-    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) { //this makes the pipeline
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
@@ -1187,8 +1197,8 @@ uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFla
     throw std::runtime_error("failed to find suitable memory type!");
 }
 
-void VulkanRenderer::createCommandBuffers() {
-    commandBuffers.resize(swapChainFramebuffers.size());
+void VulkanRenderer::createCommandBuffers() { //commands in opengl would be like glClearColour and glEnable, etc
+    commandBuffers.resize(swapChainFramebuffers.size()); //buffers for the amount of swap chains
 
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1204,7 +1214,7 @@ void VulkanRenderer::createCommandBuffers() {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-        if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS) {
+        if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS) { //set the commands for both the buffers
             throw std::runtime_error("failed to begin recording command buffer!");
         }
 
@@ -1215,7 +1225,7 @@ void VulkanRenderer::createCommandBuffers() {
         renderPassInfo.renderArea.offset = { 0, 0 };
         renderPassInfo.renderArea.extent = swapChainExtent;
 
-        std::array<VkClearValue, 2> clearValues{};
+        std::array<VkClearValue, 2> clearValues{}; //clear the screen and set the background colour
         clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
         clearValues[1].depthStencil = { 1.0f, 0 };
 
@@ -1229,6 +1239,8 @@ void VulkanRenderer::createCommandBuffers() {
         VkBuffer vertexBuffers[] = { vertexBuffer };
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+
+        vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &mpc);
 
         vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -1270,7 +1282,7 @@ void VulkanRenderer::SetUBO(const Matrix4& projection, const Matrix4& view, cons
     ubo.proj = projection;
     ubo.proj[5] *= -1.0f;
     ubo.view = view;
-    ubo.model = model;
+    mpc.model = model;
 }
 
 void VulkanRenderer::SetULB(const Vec4 lightArray_[4], const Vec4 colourArray_[4]) {
@@ -1313,6 +1325,8 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     vkMapMemory(device, uniformLightBufferMemory[currentImage], 0, sizeof(UniformLightBuffer), 0, &data);
     memcpy(data, &ulb, sizeof(UniformLightBuffer));
     vkUnmapMemory(device, uniformLightBufferMemory[currentImage]);
+
+    createCommandBuffers();
 }
 
 VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code) {

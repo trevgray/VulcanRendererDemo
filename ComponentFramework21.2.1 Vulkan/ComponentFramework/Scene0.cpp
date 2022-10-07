@@ -58,7 +58,7 @@ void Scene0::Update(const float deltaTime) {
 
 void Scene0::Render() const {
 	const Vec4 lightPositions[4] { Vec4(150.0f,0.0f,0.0f,0.0f), Vec4(-150.0f,0.0f,0.0f,0.0f), Vec4(0.0f,150.0f,0.0f,0.0f), Vec4(0.0f,-150.0f,0.0f,0.0f) };
-	const Vec4 lightColours[4]{ Vec4(0.4f, 0.1f, 0.1f, 0.0f), Vec4(0.1f, 0.1f, 0.4f, 0.0f), Vec4(0.1f, 0.4f, 0.1f, 0.0f), Vec4(0.1f, 0.1f, 0.1f, 0.0f) };
+	const Vec4 lightColours[4]{ Vec4(0.4f, 0.1f, 0.1f, 0.0f), Vec4(0.1f, 0.1f, 0.4f, 0.0f), Vec4(0.1f, 0.4f, 0.1f, 0.0f), Vec4(0.0f, 0.0f, 0.0f, 0.0f) };
 	switch (renderer->getRendererType()) {
 	case RendererType::VULKAN:
 		VulkanRenderer* vRenderer;
