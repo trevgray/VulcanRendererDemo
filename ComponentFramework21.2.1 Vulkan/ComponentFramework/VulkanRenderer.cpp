@@ -1278,11 +1278,10 @@ void VulkanRenderer::createSyncObjects() {
     }
 }
 
-void VulkanRenderer::SetUBO(const Matrix4& projection, const Matrix4& view, const Matrix4& model) {
+void VulkanRenderer::SetUBO(const Matrix4& projection, const Matrix4& view) {
     ubo.proj = projection;
     ubo.proj[5] *= -1.0f;
     ubo.view = view;
-    mpc.model = model;
 }
 
 void VulkanRenderer::SetULB(const Vec4 lightArray_[4], const Vec4 colourArray_[4]) {
@@ -1296,6 +1295,11 @@ void VulkanRenderer::SetULB(const Vec4 lightArray_[4], const Vec4 colourArray_[4
     ulb.lightColour[1] = colourArray_[1];
     ulb.lightColour[2] = colourArray_[2];
     ulb.lightColour[3] = colourArray_[3];
+}
+
+void VulkanRenderer::SetMPC(const Matrix4& model) {
+    mpc.model = model;
+    mpc.normal = MMath::transpose(MMath::inverse(model));
 }
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {

@@ -125,7 +125,7 @@ struct UniformLightBuffer {
 
 struct MeshPushConstants {
     Matrix4 model;
-    //Matrix4 normal; //it could be a matrix3 because it just rotation
+    Matrix4 normal; //it could be a matrix3 because it just rotation - but we should keep it as mat4 because its a multiple of 4
 };
 
 class VulkanRenderer : public Renderer {
@@ -142,8 +142,9 @@ public:
     bool OnCreate();
     void OnDestroy();
     void Render();
-    void SetUBO(const Matrix4& projection, const Matrix4& view, const Matrix4& model);
+    void SetUBO(const Matrix4& projection, const Matrix4& view);
     void SetULB(const Vec4 lightArray[4], const Vec4 colourArray[4]);
+    void SetMPC(const Matrix4& model);
     SDL_Window* GetWindow() {
         return window;
     }

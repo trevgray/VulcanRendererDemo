@@ -18,6 +18,7 @@ layout(binding = 2) uniform UniformLightBuffer {
 
 layout (push_constant) uniform MeshPushConstants {
 	mat4 model;
+	mat4 normal;
 } mpc;
 
 layout (location = 0) out vec3 vertNormal;
@@ -28,8 +29,8 @@ layout (location = 6) out vec2 fragTextureCoords; //aka uv coords
 
 void main() {
 	fragTextureCoords = texCoord;
-	mat3 normalMatrix = mat3(transpose(inverse(mpc.model))); //we should pass the normal matrix - this basically 
-	vertNormal = normalize(normalMatrix * vNormal.xyz); /// Rotate the normal to the correct orientation 
+	//mat3 normalMatrix = mat3(transpose(inverse(mpc.model))); //we should pass the normal matrix - this basically 
+	vertNormal = normalize(mat3(mpc.normal) * vNormal.xyz); /// Rotate the normal to the correct orientation 
 	vec3 vertPos = vec3(ubo.view * mpc.model * vVertex); /// This is the position of the vertex from the origin
 	vec3 vertDir = normalize(vertPos);
 	eyeDir = -vertDir;
