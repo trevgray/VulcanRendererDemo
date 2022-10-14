@@ -231,6 +231,7 @@ private:
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void createCommandBuffers();
+    void updateCommandBuffers();
     void createSyncObjects();
     void cleanup();
     void cleanupSwapChain();
