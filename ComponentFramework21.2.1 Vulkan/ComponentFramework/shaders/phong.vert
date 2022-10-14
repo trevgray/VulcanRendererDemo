@@ -5,21 +5,20 @@ layout (location = 0) in vec4 vVertex;
 layout (location = 1) in vec4 vNormal;
 layout (location = 2) in vec2 texCoord;
 
-layout(binding = 0) uniform UniformBufferObject { //uniform buffer
-    mat4 model;
+layout(binding = 0) uniform CameraUBO { //uniform buffer
     mat4 view;
     mat4 proj;
-} ubo;
+} cameraUBO;
 
-layout(binding = 2) uniform UniformLightBuffer {
+layout(binding = 2) uniform GlobalLightUBO {
 	vec4 lightPos[4];
 	vec4 lightColour[4];
-} ulb;
+} globalLightUBO;
 
 layout (push_constant) uniform MeshPushConstants {
 	mat4 model;
-	mat4 normal;
-} mpc;
+	mat3 normal;
+} meshPushConst;
 
 layout (location = 0) out vec3 vertNormal;
 layout (location = 1) out vec3 lightDir[4];
@@ -30,13 +29,13 @@ layout (location = 6) out vec2 fragTextureCoords; //aka uv coords
 void main() {
 	fragTextureCoords = texCoord;
 	//mat3 normalMatrix = mat3(transpose(inverse(mpc.model))); //we should pass the normal matrix - this basically 
-	vertNormal = normalize(mat3(mpc.normal) * vNormal.xyz); /// Rotate the normal to the correct orientation 
-	vec3 vertPos = vec3(ubo.view * mpc.model * vVertex); /// This is the position of the vertex from the origin
+	vertNormal = normalize(meshPushConst.normal * vNormal.xyz); /// Rotate the normal to the correct orientation 
+	vec3 vertPos = vec3(cameraUBO.view * meshPushConst.model * vVertex); /// This is the position of the vertex from the origin
 	vec3 vertDir = normalize(vertPos);
 	eyeDir = -vertDir;
 	for (int lightLoop = 0; lightLoop < 4; lightLoop++) {
- 		lightDir[lightLoop] = normalize(vec3(ulb.lightPos[lightLoop]) - vertPos); /// Create the light direction. I do the math with in class 
+ 		lightDir[lightLoop] = normalize(vec3(globalLightUBO.lightPos[lightLoop]) - vertPos); /// Create the light direction. I do the math with in class 
 		//vec3(ubo.lightPos) will downcast or ubo.lightPos.xyz will do the same
 	}
-	gl_Position =  ubo.proj * ubo.view * mpc.model * vVertex; //you could do render_matrix * vVertex; - but we need the view to find the vertPos so why not
+	gl_Position =  cameraUBO.proj * cameraUBO.view * meshPushConst.model * vVertex; //you could do render_matrix * vVertex; - but we need the view to find the vertPos so why not
 }

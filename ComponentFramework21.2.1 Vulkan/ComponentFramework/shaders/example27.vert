@@ -1,7 +1,7 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable //enable where the vert and frag are seperate
 
-layout(binding = 0) uniform UniformBufferObject { //uniform buffer
+layout(binding = 0) uniform CameraUBO { //uniform buffer
     mat4 model;
     mat4 view;
     mat4 proj;

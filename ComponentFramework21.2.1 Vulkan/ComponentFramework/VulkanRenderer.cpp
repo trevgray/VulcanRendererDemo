@@ -150,6 +150,7 @@ void VulkanRenderer::initVulkan() {
     createDescriptorPool();
     createDescriptorSets();
     createCommandBuffers(); //build the command buffers that are stored in the command pools - cutting the ties between gpu and cpu - build a command buffer so the cpu and gpu can work independently
+    updateCommandBuffers(); //Updates the command buffers - for push consts, etc
     createSyncObjects(); //sync all cores together
 }
 
@@ -252,6 +253,7 @@ void VulkanRenderer::recreateSwapChain() {
     createDescriptorPool();
     createDescriptorSets();
     createCommandBuffers();
+    updateCommandBuffers();
 }
 
 void VulkanRenderer::createInstance() {
@@ -548,9 +550,10 @@ void VulkanRenderer::createGraphicsPipeline(std::string vertFilename, std::strin
     auto vertShaderCode = readFile(vertFilename); //read the shaders
     auto fragShaderCode = readFile(fragFilename); //.spv are compiled shaders - it can still be written in glsl
 
-    VkShaderModule vertShaderModule = createShaderModule(vertShaderCode); //create a shader module
+    VkShaderModule vertShaderModule = createShaderModule(vertShaderCode); //create a shader module - based on vert and frag code
     VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
 
+    //VkPipelineShaderStageCreateInfo are shader stages - we are making them here
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{}; //builds up a structure of VkPipelineShaderStageCreateInfo
     vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO; //always put type in
     vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT; //build on the vertex stage - vertex assembly, vertex shader, tessellation controller, tessellation shader, geometry shader, fragment shader
@@ -577,7 +580,7 @@ void VulkanRenderer::createGraphicsPipeline(std::string vertFilename, std::strin
     vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{}; //structure for the PRIMITIVE TOPOLOGY
-    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO; //
     inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; //GL_TRIANGLES basically in Vulkan
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 
@@ -640,14 +643,14 @@ void VulkanRenderer::createGraphicsPipeline(std::string vertFilename, std::strin
 
     VkPushConstantRange pushConstant{}; //setup push constants
     pushConstant.offset = 0; //this push constant range starts at the beginning - stick to Vec4 and Mat4s so we don't make offsets and byte boundaries
-    pushConstant.size = sizeof(MeshPushConstants); //this push constant range takes up the size of a MeshPushConstants struct
+    pushConstant.size = sizeof(Matrix4) * 2; //this push constant range takes up the size of a MeshPushConstants struct
     pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; //this push constant range is accessible only in the vertex shader
 
     //we start from just the default empty pipeline layout info
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     //descriptor sets
-    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.setLayoutCount = 1; //num of them
     pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
     //push constants
     pipelineLayoutInfo.pushConstantRangeCount = 1;
@@ -1017,7 +1020,7 @@ void VulkanRenderer::createIndexBuffer() {
 }
 
 void VulkanRenderer::createUniformBuffers() {
-    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+    VkDeviceSize bufferSize = sizeof(CameraUBO);
 
     uniformBuffers.resize(swapChainImages.size());
     uniformBuffersMemory.resize(swapChainImages.size());
@@ -1026,7 +1029,7 @@ void VulkanRenderer::createUniformBuffers() {
         createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
     }
 
-    bufferSize = sizeof(UniformLightBuffer);
+    bufferSize = sizeof(GlobalLightUBO);
 
     uniformLightBuffer.resize(swapChainImages.size());
     uniformLightBufferMemory.resize(swapChainImages.size());
@@ -1073,12 +1076,12 @@ void VulkanRenderer::createDescriptorSets() {
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = uniformBuffers[i];
         bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(UniformBufferObject);
+        bufferInfo.range = sizeof(CameraUBO);
 
         VkDescriptorBufferInfo lightBufferInfo{};
         lightBufferInfo.buffer = uniformLightBuffer[i];
         lightBufferInfo.offset = 0;
-        lightBufferInfo.range = sizeof(UniformLightBuffer);
+        lightBufferInfo.range = sizeof(GlobalLightUBO);
 
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1209,58 +1212,13 @@ void VulkanRenderer::createCommandBuffers() { //commands in opengl would be like
     if (vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate command buffers!");
     }
-
-    for (size_t i = 0; i < commandBuffers.size(); i++) {
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-        if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS) { //set the commands for both the buffers
-            throw std::runtime_error("failed to begin recording command buffer!");
-        }
-
-        VkRenderPassBeginInfo renderPassInfo{};
-        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        renderPassInfo.renderPass = renderPass;
-        renderPassInfo.framebuffer = swapChainFramebuffers[i];
-        renderPassInfo.renderArea.offset = { 0, 0 };
-        renderPassInfo.renderArea.extent = swapChainExtent;
-
-        std::array<VkClearValue, 2> clearValues{}; //clear the screen and set the background colour
-        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
-        clearValues[1].depthStencil = { 1.0f, 0 };
-
-        renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-        renderPassInfo.pClearValues = clearValues.data();
-
-        vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-
-        VkBuffer vertexBuffers[] = { vertexBuffer };
-        VkDeviceSize offsets[] = { 0 };
-        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-
-        vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &mpc);
-
-        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-        vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
-
-        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-
-        vkCmdEndRenderPass(commandBuffers[i]);
-
-        if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
-            throw std::runtime_error("failed to record command buffer!");
-        }
-    }
 }
 
 void VulkanRenderer::updateCommandBuffers() {
     for (size_t i = 0; i < commandBuffers.size(); i++) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
+        //if the command buffer was already recorded once
         if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS) { //set the commands for both the buffers
             throw std::runtime_error("failed to begin recording command buffer!");
         }
@@ -1281,19 +1239,22 @@ void VulkanRenderer::updateCommandBuffers() {
 
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+        //Choose the pipeline and bind to it
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
+        //this bind the vert and index data
         VkBuffer vertexBuffers[] = { vertexBuffer };
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 
-        vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &mpc);
-
         vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+        vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &meshPushConst);
+        //vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Matrix4) * 2, &meshPushConst);
 
         vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
 
-        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0); //drawing the buffers
 
         vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -1325,28 +1286,31 @@ void VulkanRenderer::createSyncObjects() {
     }
 }
 
-void VulkanRenderer::SetUBO(const Matrix4& projection, const Matrix4& view) {
-    ubo.proj = projection;
-    ubo.proj[5] *= -1.0f;
-    ubo.view = view;
+void VulkanRenderer::SetCameraUBO(const Matrix4& projection, const Matrix4& view) {
+    cameraUBO.proj = projection;
+    cameraUBO.proj[5] *= -1.0f;
+    cameraUBO.view = view;
 }
 
-void VulkanRenderer::SetULB(const Vec4 lightArray_[4], const Vec4 colourArray_[4]) {
+void VulkanRenderer::SetLightUBO(const Vec4 lightArray_[4], const Vec4 colourArray_[4]) {
     //light position
-    ulb.lightPos[0] = lightArray_[0];
-    ulb.lightPos[1] = lightArray_[1];
-    ulb.lightPos[2] = lightArray_[2];
-    ulb.lightPos[3] = lightArray_[3];
+    globalLightBuffer.lightPos[0] = lightArray_[0];
+    globalLightBuffer.lightPos[1] = lightArray_[1];
+    globalLightBuffer.lightPos[2] = lightArray_[2];
+    globalLightBuffer.lightPos[3] = lightArray_[3];
     //light colour
-    ulb.lightColour[0] = colourArray_[0];
-    ulb.lightColour[1] = colourArray_[1];
-    ulb.lightColour[2] = colourArray_[2];
-    ulb.lightColour[3] = colourArray_[3];
+    globalLightBuffer.lightColour[0] = colourArray_[0];
+    globalLightBuffer.lightColour[1] = colourArray_[1];
+    globalLightBuffer.lightColour[2] = colourArray_[2];
+    globalLightBuffer.lightColour[3] = colourArray_[3];
 }
 
-void VulkanRenderer::SetMPC(const Matrix4& model) {
-    mpc.model = model;
-    mpc.normal = MMath::transpose(MMath::inverse(model));
+void VulkanRenderer::SetMeshPushConstant(const Matrix4& model) {
+    meshPushConst.model = model;
+    meshPushConst.normal = MMath::transpose(MMath::inverse(model));
+
+    updateCommandBuffers(); //for updating push consts
+    //push consts are very fast, but they are limited in space - 128 bytes
 }
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
@@ -1355,7 +1319,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     ///auto currentTime = std::chrono::high_resolution_clock::now();
     ///float elapsedTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-   /// UniformBufferObject ubo{}; Gone, now  its a member of the class
+   /// CameraUBO ubo{}; Gone, now  its a member of the class
     ///float aspectRatio = static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height);
     
     //Matrix4 oriention = MMath::rotate(0.0f, Vec3(1.0f, 0.0f, 0.0f));
@@ -1368,16 +1332,14 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
 
     void* data; //set a void pointer to store the data location inside the gpu - void pointer is a pointer to anything
     //uniformBuffersMemory[currentImage] stores the current image(buffer) that we want to work on
-    vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(UniformBufferObject), 0, &data); //get the data location inside the gpu to put the ubo - its in a safe memory location inside the gpu
+    vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(CameraUBO), 0, &data); //get the data location inside the gpu to put the ubo - its in a safe memory location inside the gpu
     //&data gets a pointer of a pointer (address of a pointer) - vkMapMemory could have returned a number, but it puts the address into the data variable
-    memcpy(data, &ubo, sizeof(UniformBufferObject)); //copys the memory of the ubo into the data location - memcpy(destination, address of structure, size of structure)
+    memcpy(data, &cameraUBO, sizeof(CameraUBO)); //copys the memory of the ubo into the data location - memcpy(destination, address of structure, size of structure)
     vkUnmapMemory(device, uniformBuffersMemory[currentImage]); //give the data location back - the gpu can now use the memory
 
-    vkMapMemory(device, uniformLightBufferMemory[currentImage], 0, sizeof(UniformLightBuffer), 0, &data);
-    memcpy(data, &ulb, sizeof(UniformLightBuffer));
+    vkMapMemory(device, uniformLightBufferMemory[currentImage], 0, sizeof(GlobalLightUBO), 0, &data);
+    memcpy(data, &globalLightBuffer, sizeof(GlobalLightUBO));
     vkUnmapMemory(device, uniformLightBufferMemory[currentImage]);
-
-    updateCommandBuffers();
 }
 
 VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code) {

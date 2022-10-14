@@ -112,13 +112,12 @@ struct QueueFamilyIndices {
     }
 
  
-struct UniformBufferObject {
-    Matrix4 model;
+struct CameraUBO {
     Matrix4 view;
     Matrix4 proj;
 };
 
-struct UniformLightBuffer {
+struct GlobalLightUBO {
     Vec4 lightPos[4];
     Vec4 lightColour[4];
 };
@@ -142,17 +141,18 @@ public:
     bool OnCreate();
     void OnDestroy();
     void Render();
-    void SetUBO(const Matrix4& projection, const Matrix4& view);
-    void SetULB(const Vec4 lightArray[4], const Vec4 colourArray[4]);
-    void SetMPC(const Matrix4& model);
+    void SetCameraUBO(const Matrix4& projection, const Matrix4& view);
+    void SetLightUBO(const Vec4 lightArray[4], const Vec4 colourArray[4]);
+    void SetMeshPushConstant(const Matrix4& model);
     SDL_Window* GetWindow() {
         return window;
     }
 
 private:
-    UniformBufferObject ubo;
-    UniformLightBuffer ulb;
-    MeshPushConstants mpc;
+    CameraUBO cameraUBO;
+    GlobalLightUBO globalLightBuffer;
+    MeshPushConstants meshPushConst;
+
     const size_t MAX_FRAMES_IN_FLIGHT = 2; //double buffering
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -169,6 +169,7 @@ private:
     VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
+
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
 
