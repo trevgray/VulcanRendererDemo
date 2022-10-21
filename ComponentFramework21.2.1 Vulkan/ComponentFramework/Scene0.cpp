@@ -28,6 +28,14 @@ bool Scene0::OnCreate() {
 		aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 		camera->Perspective(45.0f, aspectRatio, 0.5f, 20.0f);
 		camera->SetViewMatrix(MMath::translate(Vec3(0.0f, 0.0f, -5.0f)) * MMath::rotate(0.0f, Vec3(0.0f, 1.0f, 0.0f)));
+
+		globalLights.lightPos[0] = Vec4(10.0f, 0.0f, 0.0f, 0.0f); globalLights.lightPos[1] = Vec4(-10.0f, 0.0f, 0.0f, 0.0f); 
+		globalLights.lightPos[2] = Vec4(0.0f, 10.0f, 0.0f, 0.0f); globalLights.lightPos[3] = Vec4(0.0f, -150.0f, 0.0f, 0.0f);
+
+		globalLights.lightColour[0] = Vec4(0.6f, 0.1f, 0.1f, 0.0f); globalLights.lightColour[1] = Vec4(0.1f, 0.1f, 0.6f, 0.0f);
+		globalLights.lightColour[2] = Vec4(0.1f, 0.6f, 0.1f, 0.0f); globalLights.lightColour[3] = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
+
+
 		break;
 
 	case RendererType::OPENGL:
@@ -57,14 +65,15 @@ void Scene0::Update(const float deltaTime) {
 }
 
 void Scene0::Render() const {
-	const Vec4 lightPositions[4] { Vec4(10.0f,0.0f,0.0f,0.0f), Vec4(-10.0f,0.0f,0.0f,0.0f), Vec4(0.0f,10.0f,0.0f,0.0f), Vec4(0.0f,-150.0f,0.0f,0.0f) };
-	const Vec4 lightColours[4]{ Vec4(0.6f, 0.1f, 0.1f, 0.0f), Vec4(0.1f, 0.1f, 0.6f, 0.0f), Vec4(0.1f, 0.6f, 0.1f, 0.0f), Vec4(0.0f, 0.0f, 0.0f, 0.0f) };
+	/*const Vec4 lightPositions[4] { Vec4(10.0f,0.0f,0.0f,0.0f), Vec4(-10.0f,0.0f,0.0f,0.0f), Vec4(0.0f,10.0f,0.0f,0.0f), Vec4(0.0f,-150.0f,0.0f,0.0f) };
+	const Vec4 lightColours[4]{ Vec4(0.6f, 0.1f, 0.1f, 0.0f), Vec4(0.1f, 0.1f, 0.6f, 0.0f), Vec4(0.1f, 0.6f, 0.1f, 0.0f), Vec4(0.0f, 0.0f, 0.0f, 0.0f) };*/
 	switch (renderer->getRendererType()) {
 	case RendererType::VULKAN:
 		VulkanRenderer* vRenderer;
 		vRenderer = dynamic_cast<VulkanRenderer*>(renderer);
 		vRenderer->SetCameraUBO(camera->GetProjectionMatrix(), camera->GetViewMatrix());
-		vRenderer->SetLightUBO(lightPositions, lightColours);
+		//vRenderer->SetGlobalLightUBO(lightPositions, lightColours);
+		vRenderer->SetGlobalLightUBO(globalLights);
 		vRenderer->SetMeshPushConstant(mariosModelMatrix);
 		vRenderer->Render();
 		break;

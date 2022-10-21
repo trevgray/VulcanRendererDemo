@@ -17,7 +17,7 @@ layout(binding = 2) uniform GlobalLightUBO {
 
 layout (push_constant) uniform MeshPushConstants {
 	mat4 model;
-	mat3 normal;
+	mat4 normal;
 } meshPushConst;
 
 layout (location = 0) out vec3 vertNormal;
@@ -28,8 +28,7 @@ layout (location = 6) out vec2 fragTextureCoords; //aka uv coords
 
 void main() {
 	fragTextureCoords = texCoord;
-	//mat3 normalMatrix = mat3(transpose(inverse(mpc.model))); //we should pass the normal matrix - this basically 
-	vertNormal = normalize(meshPushConst.normal * vNormal.xyz); /// Rotate the normal to the correct orientation 
+	vertNormal = normalize(mat3(meshPushConst.normal) * vNormal.xyz); /// Rotate the normal to the correct orientation 
 	vec3 vertPos = vec3(cameraUBO.view * meshPushConst.model * vVertex); /// This is the position of the vertex from the origin
 	vec3 vertDir = normalize(vertPos);
 	eyeDir = -vertDir;
@@ -37,5 +36,10 @@ void main() {
  		lightDir[lightLoop] = normalize(vec3(globalLightUBO.lightPos[lightLoop]) - vertPos); /// Create the light direction. I do the math with in class 
 		//vec3(ubo.lightPos) will downcast or ubo.lightPos.xyz will do the same
 	}
+//	if (meshPushConst.normal[1][2] < 0.0) {
+//		gl_Position =  cameraUBO.proj * cameraUBO.view * vVertex;
+//	}
+	
 	gl_Position =  cameraUBO.proj * cameraUBO.view * meshPushConst.model * vVertex; //you could do render_matrix * vVertex; - but we need the view to find the vertPos so why not
+	
 }

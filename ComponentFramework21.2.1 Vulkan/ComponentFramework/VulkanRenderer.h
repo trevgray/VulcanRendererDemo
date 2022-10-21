@@ -23,6 +23,7 @@
 #include "VMath.h"
 #include "MMath.h"
 #include "Hash.h"
+#include "GlobalLight.h"
 using namespace MATH;
 
 
@@ -117,10 +118,10 @@ struct CameraUBO {
     Matrix4 proj;
 };
 
-struct GlobalLightUBO {
-    Vec4 lightPos[4];
-    Vec4 lightColour[4];
-};
+//struct GlobalLightUBO {
+//    Vec4 lightPos[4];
+//    Vec4 lightColour[4];
+//};
 
 struct MeshPushConstants {
     Matrix4 model;
@@ -142,15 +143,19 @@ public:
     void OnDestroy();
     void Render();
     void SetCameraUBO(const Matrix4& projection, const Matrix4& view);
-    void SetLightUBO(const Vec4 lightArray[4], const Vec4 colourArray[4]);
+
+    void SetGlobalLightUBO(const Vec4 lightArray[4], const Vec4 colourArray[4]);
+    void SetGlobalLightUBO(const GlobalLightUBO& gLights);
+
     void SetMeshPushConstant(const Matrix4& model);
+    void updateAllUniformBuffers(uint32_t currentImage);
     SDL_Window* GetWindow() {
         return window;
     }
 
 private:
     CameraUBO cameraUBO;
-    GlobalLightUBO globalLightBuffer;
+    GlobalLightUBO globalLightUBO;
     MeshPushConstants meshPushConst;
 
     const size_t MAX_FRAMES_IN_FLIGHT = 2; //double buffering
@@ -184,11 +189,11 @@ private:
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
 
-    std::vector<VkBuffer> uniformBuffers;
-    std::vector<VkDeviceMemory> uniformBuffersMemory;
+    std::vector<VkBuffer> cameraBuffers;
+    std::vector<VkDeviceMemory> cameraBuffersMemory;
 
-    std::vector<VkBuffer> uniformLightBuffer;
-    std::vector<VkDeviceMemory> uniformLightBufferMemory;
+    std::vector<VkBuffer> globalLightBuffers;
+    std::vector<VkDeviceMemory> globalLightBuffersMemory;
 
     std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkSemaphore> imageAvailableSemaphores;
@@ -208,7 +213,7 @@ private:
     void createSwapChain();
     void createImageViews();
     void recreateSwapChain();
-    void updateUniformBuffer(uint32_t currentImage);
+    //void updateUniformBuffer(uint32_t currentImage);
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
     void createRenderPass();
     void createDescriptorSetLayout();
@@ -226,7 +231,7 @@ private:
         /// A helper function for createVertexBuffer()
         uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
     void createIndexBuffer();
-    void createUniformBuffers();
+    void createUniformBuffers(VkDeviceSize bufferSize, std::vector<VkBuffer>& uniformBuffer, std::vector<VkDeviceMemory>& uniformBuffersMemory);
     void createDescriptorPool();
     void createDescriptorSets();
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
@@ -236,6 +241,7 @@ private:
     void createSyncObjects();
     void cleanup();
     void cleanupSwapChain();
+    void cleanupUniformBuffer(std::vector<VkBuffer>& uniformBuffer, std::vector<VkDeviceMemory>& uniformBuffersMemory);
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
     void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
