@@ -1,6 +1,8 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+//FRAG SHADER RUNS FOR EVERY PIXEL OF THE SCREEN
+
 layout (location = 0) in  vec3 vertNormal;
 layout (location = 1) in  vec3 lightDir[4];
 layout (location = 5) in  vec3 eyeDir;

@@ -1,10 +1,14 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+//VERT SHADER RUNS FOR EVERY VERTEX
+
+//Attributes--------------------- Update Every Frame
 layout (location = 0) in vec4 vVertex;
 layout (location = 1) in vec4 vNormal;
 layout (location = 2) in vec2 texCoord;
 
+//Uniforms--------------------- Stay Uniform Unless Updated
 layout(binding = 0) uniform CameraUBO { //uniform buffer
     mat4 view;
     mat4 proj;
@@ -20,6 +24,7 @@ layout (push_constant) uniform MeshPushConstants {
 	mat4 normal;
 } meshPushConst;
 
+//OUTS---------------------
 layout (location = 0) out vec3 vertNormal;
 layout (location = 1) out vec3 lightDir[4];
 layout (location = 5) out vec3 eyeDir;

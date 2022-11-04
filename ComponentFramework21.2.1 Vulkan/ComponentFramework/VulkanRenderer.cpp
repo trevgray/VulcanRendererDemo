@@ -6,13 +6,12 @@
 //https://vulkan-tutorial.com/Introduction
 
 
-VulkanRenderer::VulkanRenderer(): /// Initialize all the variables
-    window(nullptr), instance(nullptr), debugMessenger(0), surface(0),commandPool(0),device(nullptr),graphicsPipeline(0),
-    windowWidth(0), windowHeight(0),presentQueue(0),graphicsQueue(nullptr),pipelineLayout(0), renderPass(0), swapChain(0),
-    swapChainExtent{},swapChainImageFormat{} {   
-     
- }
+VulkanRenderer::VulkanRenderer() : /// Initialize all the variables
+    window(nullptr), instance(nullptr), debugMessenger(0), surface(0), commandPool(0), device(nullptr), graphicsPipeline(0),
+    windowWidth(0), windowHeight(0), presentQueue(0), graphicsQueue(nullptr), pipelineLayout(0), renderPass(0), swapChain(0),
+    swapChainExtent{}, swapChainImageFormat{} {
 
+}
 
 VulkanRenderer::~VulkanRenderer() {
 
@@ -43,8 +42,8 @@ void VulkanRenderer::Render() {
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex); //check if what i am about to draw on is valid
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) { //rebuild all the swap chain, this is similar to resizing the window
-        recreateSwapChain();
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) { //if what we are doing is not valid
+        recreateSwapChain(); //rebuild all the swap chain, this is similar to resizing the window
         return;
     }
     else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) { //if the swapchain can not be rebuilt, we just end the program
@@ -105,7 +104,7 @@ void VulkanRenderer::Render() {
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-
+//All Scott said was don't look at that
 VkResult VulkanRenderer::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
     auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
     if (func != nullptr) {
@@ -114,7 +113,7 @@ VkResult VulkanRenderer::CreateDebugUtilsMessengerEXT(VkInstance instance, const
         return VK_ERROR_EXTENSION_NOT_PRESENT;
     }
 }
-
+//Same with this one
 void VulkanRenderer::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
     auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
     if (func != nullptr) {
@@ -122,9 +121,8 @@ void VulkanRenderer::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugU
     }
 }
 
-
-
 void VulkanRenderer::initVulkan() {
+    //Vulkan starts uninitialized, we have to set up everything
     createInstance(); //create a instance of vulkan - setup the driver
     setupDebugMessenger(); //
     if (!SDL_Vulkan_CreateSurface(window, instance, &surface)) {
@@ -138,13 +136,13 @@ void VulkanRenderer::initVulkan() {
     createDescriptorSetLayout(); //Sets up the location and layout for the uniforms in the shader
     createGraphicsPipeline("shaders/phong.vert.spv", "shaders/phong.frag.spv"); //set up a pipeline with a shader - each shader will have its own pipeline
     createCommandPool(); //a command pool holds command buffers
-    createDepthResources();
-    createFramebuffers(); //create a frame buffer which is the 
+    createDepthResources(); //Figure out the depth format
+    createFramebuffers(); //create a frame buffer - a point in between swap chain to the SDL window
+
     createTextureImage("./textures/mario_main.png"); //loads a image and moves it into the gpu
-    createTextureImageView();
-    createTextureSampler(); //how the images is interpreted
-    loadModel("./meshes/Mario.obj"); //using tiny obj to load the model
-    createVertexBuffer(); //create a vertex buffer and preform vertex deduplication
+
+    loadModel("./meshes/Mario.obj"); //using tiny obj to load the model and preform vertex deduplication
+    createVertexBuffer(); //create a vertex buffer
     createIndexBuffer(); //build the index buffer
 
     createUniformBuffers(sizeof(CameraUBO), cameraBuffers, cameraBuffersMemory); //build uniforms for the shaders
@@ -152,8 +150,10 @@ void VulkanRenderer::initVulkan() {
 
     createDescriptorPool();
     createDescriptorSets();
+
     createCommandBuffers(); //build the command buffers that are stored in the command pools - cutting the ties between gpu and cpu - build a command buffer so the cpu and gpu can work independently
     updateCommandBuffers(); //Updates the command buffers - for push consts, etc
+
     createSyncObjects(); //sync all cores together
 }
 
@@ -241,7 +241,7 @@ void VulkanRenderer::recreateSwapChain() {
 
     SDL_GetWindowSize(window, &width, &height);
 
-    while (width == 0 || height == 0) { //if the window size is 0 then things will go wrong so wait
+    while (width == 0 || height == 0) { //if the window size is 0 then things will go wrong - so wait
 
         SDL_GetWindowSize(window, &width, &height);
 
@@ -253,7 +253,8 @@ void VulkanRenderer::recreateSwapChain() {
 
     cleanupSwapChain(); //clean up the swap chain
 
-    createSwapChain(); //recreate the pipeline
+    //recreate the pipeline
+    createSwapChain();
     createImageViews();
     createRenderPass();
     createGraphicsPipeline("shaders/phong.vert.spv", "shaders/phong.frag.spv");
@@ -359,6 +360,7 @@ void VulkanRenderer::pickPhysicalDevice() {
 }
 
 void VulkanRenderer::createLogicalDevice() {
+    //Get info about the physical device and make abstraction
     QueueFamilyIndices indices = findQueueFamilies(physicalDevice); //find all the gpu queues families and store it into indices
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -569,13 +571,14 @@ void VulkanRenderer::createGraphicsPipeline(std::string vertFilename, std::strin
     auto vertShaderCode = readFile(vertFilename); //read the shaders
     auto fragShaderCode = readFile(fragFilename); //.spv are compiled shaders - it can still be written in glsl
 
+    //a shader module is a pipeline
     VkShaderModule vertShaderModule = createShaderModule(vertShaderCode); //create a shader module - based on vert and frag code
     VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
 
     //VkPipelineShaderStageCreateInfo are shader stages - we are making them here
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{}; //builds up a structure of VkPipelineShaderStageCreateInfo
-    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO; //always put type in
-    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT; //build on the vertex stage - vertex assembly, vertex shader, tessellation controller, tessellation shader, geometry shader, fragment shader
+    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO; //always put the type in
+    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT; //build on the vertex stage - all the stages are vertex assembly, vertex shader, tessellation controller, tessellation shader, geometry shader, fragment shader
     vertShaderStageInfo.module = vertShaderModule;
     vertShaderStageInfo.pName = "main";
 
@@ -585,12 +588,13 @@ void VulkanRenderer::createGraphicsPipeline(std::string vertFilename, std::strin
     fragShaderStageInfo.module = fragShaderModule;
     fragShaderStageInfo.pName = "main";
 
-    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo }; //array of all shader stages
+    VkPipelineShaderStageCreateInfo shaderStages[2] = { vertShaderStageInfo, fragShaderStageInfo }; //array of all shader stages
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-    auto bindingDescription = Vertex::getBindingDescription();
+    //Set up where the memory is all laid out
+    auto bindingDescription = Vertex::getBindingDescription(); 
     auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
     vertexInputInfo.vertexBindingDescriptionCount = 1; //num of objects
@@ -603,9 +607,10 @@ void VulkanRenderer::createGraphicsPipeline(std::string vertFilename, std::strin
     inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; //GL_TRIANGLES basically in Vulkan
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-    VkViewport viewport{}; //viewport structure
+    VkViewport viewport{}; //viewport structure (window)
     viewport.x = 0.0f; //scott has never not seen the viewport.x and .y other than 0 
     viewport.y = 0.0f;
+    //The swap chain is the memory we are writing on
     viewport.width = static_cast<float>(swapChainExtent.width); //get the width and height of the swap chain (window)
     viewport.height = static_cast<float>(swapChainExtent.height);
     viewport.minDepth = 0.0f; //z depth of the normalized device coordinates zone
@@ -662,8 +667,7 @@ void VulkanRenderer::createGraphicsPipeline(std::string vertFilename, std::strin
 
     VkPushConstantRange pushConstant{}; //setup push constants
     pushConstant.offset = 0; //this push constant range starts at the beginning - stick to Vec4 and Mat4s so we don't make offsets and byte boundaries
-    //pushConstant.size = sizeof(Matrix4) * 2; //this push constant range takes up the size of a MeshPushConstants struct
-    pushConstant.size = sizeof(MeshPushConstants);
+    pushConstant.size = sizeof(MeshPushConstants); //this push constant range takes up the size of a MeshPushConstants struct
     pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; //this push constant range is accessible only in the vertex shader
 
     //we start from just the default empty pipeline layout info
@@ -673,7 +677,7 @@ void VulkanRenderer::createGraphicsPipeline(std::string vertFilename, std::strin
     pipelineLayoutInfo.setLayoutCount = 1; //num of them
     pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
     //push constants
-    pipelineLayoutInfo.pushConstantRangeCount = 1;
+    pipelineLayoutInfo.pushConstantRangeCount = 1; //num of them
     pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
 
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) { //this makes the pipeline
@@ -729,6 +733,7 @@ void VulkanRenderer::createFramebuffers() {
 }
 
 void VulkanRenderer::createCommandPool() {
+    //How many command pools can we create
     QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
 
     VkCommandPoolCreateInfo poolInfo{};
@@ -776,10 +781,13 @@ bool VulkanRenderer::hasStencilComponent(VkFormat format) {
 }
 
 void VulkanRenderer::createTextureImage(std::string filename_) {
-    SDL_Surface* image = IMG_Load(filename_.c_str());
+    SDL_Surface* image = IMG_Load(filename_.c_str()); //SDL load image
     ///image->format
     VkDeviceSize imageSize = image->w * image->h * 4; //stores only rgba textures - adding rgb textures could be a project to make the renderer better
 
+    //Create a VkBuffer - a vkbuffer has the buffer struct and device memory
+    //A VkBuffer is the handle to the buffer - its a ID
+    //a VkDeviceMemory is the buffer memory with all the info of the buffer
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
     createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
@@ -789,16 +797,21 @@ void VulkanRenderer::createTextureImage(std::string filename_) {
     memcpy(data, image->pixels, static_cast<size_t>(imageSize));
     vkUnmapMemory(device, stagingBufferMemory);
 
-  
+    //textureImage, textureImageMemory would be the combo of the vkbuffer and vkdevicememory
     createImage(image->w, image->h, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
     transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(image->w), static_cast<uint32_t>(image->h));
     transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+    //Clean up the buffers
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 
     SDL_FreeSurface(image);
+
+    //Make calls to set up the rest of the texture
+    createTextureImageView();
+    createTextureSampler(); //how the images is interpreted
 }
 
 void VulkanRenderer::createTextureImageView() {
@@ -989,11 +1002,12 @@ void VulkanRenderer::loadModel(std::string filename_) {
                 1.0f - attrib.texcoords[2 * index.texcoord_index + 1] //some algebra to get the alignment right on the y value
             };
 
+            //Vertex De-duplication
             if (uniqueVertices.count(vertex) == 0) { //look through the unordered map and try to find the vertex - if == 0 then vertex was not found - step into to see the hash function
                 uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
                 vertices.push_back(vertex);
             }
-
+            //Indices are a draw list of unique vertices - the vertexes are indexed
             indices.push_back(uniqueVertices[vertex]);
         }
     }
@@ -1001,7 +1015,7 @@ void VulkanRenderer::loadModel(std::string filename_) {
 
 void VulkanRenderer::createVertexBuffer() {
     VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size(); //sizeof(Vertex) * numOfVertices
-    VkBuffer stagingBuffer; //handles to these buffers
+    VkBuffer stagingBuffer; //temporary staging memory that will be used in the vertex buffer
     VkDeviceMemory stagingBufferMemory;
                                                                                                                        // these are being pulled in by reference, be constatant
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
@@ -1011,15 +1025,16 @@ void VulkanRenderer::createVertexBuffer() {
     memcpy(data, vertices.data(), (size_t)bufferSize);
     vkUnmapMemory(device, stagingBufferMemory);
 
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory); //create the permanent buffer
 
     copyBuffer(stagingBuffer, vertexBuffer, bufferSize); //copy all the staging buffer into the vertex buffer
 
-    vkDestroyBuffer(device, stagingBuffer, nullptr);
+    vkDestroyBuffer(device, stagingBuffer, nullptr); //destroy the temp memory
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
 void VulkanRenderer::createIndexBuffer() {
+    //This is the same as the vertex buffer - check comments there
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
     VkBuffer stagingBuffer;
@@ -1041,7 +1056,7 @@ void VulkanRenderer::createIndexBuffer() {
 
 void VulkanRenderer::createUniformBuffers(VkDeviceSize bufferSize, std::vector<VkBuffer> &uniformBuffer, std::vector<VkDeviceMemory> &uniformBufferMemory) {
     //swapChainImages are vk surfaces that we draw too (or something like that)
-    uniformBuffer.resize(swapChainImages.size()); //create the memory
+    uniformBuffer.resize(swapChainImages.size()); //create the memory in both of the swap chains - we need the memory on whatever frame we are on
 
     uniformBufferMemory.resize(swapChainImages.size());
     //uniformBuffersMemory are the device memory - we need one for every swap chain
@@ -1054,7 +1069,7 @@ void VulkanRenderer::createUniformBuffers(VkDeviceSize bufferSize, std::vector<V
 void VulkanRenderer::createDescriptorPool() { //descriptor pool holds descriptor sets
     std::array<VkDescriptorPoolSize, 3> poolSizes{}; //declare the size of the pool
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; //put the sets into the pool
-    poolSizes[0].descriptorCount = static_cast<uint32_t>(swapChainImages.size());
+    poolSizes[0].descriptorCount = static_cast<uint32_t>(swapChainImages.size()); //number of descriptors
 
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[1].descriptorCount = static_cast<uint32_t>(swapChainImages.size());
@@ -1073,7 +1088,7 @@ void VulkanRenderer::createDescriptorPool() { //descriptor pool holds descriptor
     }
 }
 
-void VulkanRenderer::createDescriptorSets() {
+void VulkanRenderer::createDescriptorSets() { //dynamic descriptors?
     std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -1246,12 +1261,14 @@ void VulkanRenderer::updateCommandBuffers() {
         renderPassInfo.renderArea.offset = { 0, 0 };
         renderPassInfo.renderArea.extent = swapChainExtent;
 
-        std::array<VkClearValue, 2> clearValues{}; //clear the screen and set the background colour
-        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+        //clear the screen and set the background colour
+        std::array<VkClearValue, 2> clearValues{};
+        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f }; //rgba
         clearValues[1].depthStencil = { 1.0f, 0 };
-
         renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
         renderPassInfo.pClearValues = clearValues.data();
+
+        //probably start the loop for all the pipelines here
 
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -1270,6 +1287,7 @@ void VulkanRenderer::updateCommandBuffers() {
 
         vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
 
+        //vkCmdDrawIndexed is for the vertex De-duplication, we draw the indexed vertexes
         vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0); //drawing the buffers
 
         vkCmdEndRenderPass(commandBuffers[i]);
@@ -1308,18 +1326,18 @@ void VulkanRenderer::SetCameraUBO(const Matrix4& projection, const Matrix4& view
     cameraUBO.view = view;
 }
 
-void VulkanRenderer::SetGlobalLightUBO(const Vec4 lightArray_[4], const Vec4 colourArray_[4]) {
-    //light position
-    globalLightUBO.lightPos[0] = lightArray_[0];
-    globalLightUBO.lightPos[1] = lightArray_[1];
-    globalLightUBO.lightPos[2] = lightArray_[2];
-    globalLightUBO.lightPos[3] = lightArray_[3];
-    //light colour
-    globalLightUBO.lightColour[0] = colourArray_[0];
-    globalLightUBO.lightColour[1] = colourArray_[1];
-    globalLightUBO.lightColour[2] = colourArray_[2];
-    globalLightUBO.lightColour[3] = colourArray_[3];
-}
+//void VulkanRenderer::SetGlobalLightUBO(const Vec4 lightArray_[4], const Vec4 colourArray_[4]) {
+//    //light position
+//    globalLightUBO.lightPos[0] = lightArray_[0];
+//    globalLightUBO.lightPos[1] = lightArray_[1];
+//    globalLightUBO.lightPos[2] = lightArray_[2];
+//    globalLightUBO.lightPos[3] = lightArray_[3];
+//    //light colour
+//    globalLightUBO.lightColour[0] = colourArray_[0];
+//    globalLightUBO.lightColour[1] = colourArray_[1];
+//    globalLightUBO.lightColour[2] = colourArray_[2];
+//    globalLightUBO.lightColour[3] = colourArray_[3];
+//}
 
 void VulkanRenderer::SetGlobalLightUBO(const GlobalLightUBO& gLights) {
     for (int x = 0; x < 4; x++) {
@@ -1331,16 +1349,6 @@ void VulkanRenderer::SetGlobalLightUBO(const GlobalLightUBO& gLights) {
 void VulkanRenderer::SetMeshPushConstant(const Matrix4& model) {
     meshPushConst.model = model;
     meshPushConst.normal = MMath::transpose(MMath::inverse(model));
-    /*Matrix4 mat4Normal = MMath::transpose(MMath::inverse(model));
-    
-    mat4Normal.print();
-
-    meshPushConst.normal[0] = mat4Normal[0];
-    meshPushConst.normal[6] = mat4Normal[8];
-    meshPushConst.normal[2] = mat4Normal[2];
-    meshPushConst.normal[8] = mat4Normal[10];
-
-    meshPushConst.normal.print();*/
 
     updateCommandBuffers(); //for updating push consts
     //push consts are very fast, but they are limited in space - 128 bytes
@@ -1535,6 +1543,7 @@ bool VulkanRenderer::checkValidationLayerSupport() {
 }
 
 std::vector<char> VulkanRenderer::readFile(const std::string& filename) {
+    //easy C code
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
     if (!file.is_open()) {

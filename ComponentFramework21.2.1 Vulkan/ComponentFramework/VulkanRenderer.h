@@ -65,20 +65,22 @@ struct QueueFamilyIndices {
         Vec3 normal;
         Vec2 texCoord;
 
+        //Static function for making a input binding for shaders - this sets up the point to bind in the shader
         static VkVertexInputBindingDescription getBindingDescription() {
-            VkVertexInputBindingDescription bindingDescription{};
-            bindingDescription.binding = 0;
+            VkVertexInputBindingDescription bindingDescription{}; //Create struct
+            bindingDescription.binding = 0; //binding point
             bindingDescription.stride = sizeof(Vertex);
-            bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+            bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX; //Do it per vertex basis
             return bindingDescription;
         }
 
+        //Static function for making a input attribute for shaders - this puts the info into the shader
         static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
             std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
 
-            attributeDescriptions[0].binding = 0;
+            attributeDescriptions[0].binding = 0; //Use the binding point from the other static function
             attributeDescriptions[0].location = 0;
-            attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT; //vulkan format for floating point vec3 - 3 floating point values
+            attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT; //Vulkan format for floating point vec3 - 3 floating point values
             attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
             attributeDescriptions[1].binding = 0;
@@ -88,7 +90,7 @@ struct QueueFamilyIndices {
 
             attributeDescriptions[2].binding = 0;
             attributeDescriptions[2].location = 2;
-            attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+            attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT; //Vulkan format for floating point vec2 
             attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
             return attributeDescriptions;
@@ -111,6 +113,11 @@ struct QueueFamilyIndices {
             }
         };
     }
+
+struct BufferHandle {
+    VkBuffer buffer;
+    VkDeviceMemory bufferMemory;
+};
 
  
 struct CameraUBO {
@@ -144,7 +151,7 @@ public:
     void Render();
     void SetCameraUBO(const Matrix4& projection, const Matrix4& view);
 
-    void SetGlobalLightUBO(const Vec4 lightArray[4], const Vec4 colourArray[4]);
+    //void SetGlobalLightUBO(const Vec4 lightArray[4], const Vec4 colourArray[4]);
     void SetGlobalLightUBO(const GlobalLightUBO& gLights);
 
     void SetMeshPushConstant(const Matrix4& model);
@@ -173,7 +180,7 @@ private:
     VkRenderPass renderPass;
     VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
-    VkPipeline graphicsPipeline;
+    VkPipeline graphicsPipeline; //maybe make a unordered map of them
 
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
@@ -183,6 +190,8 @@ private:
     VkImageView depthImageView;
 
     VkCommandPool commandPool;
+
+    //std::unordered_map<std::string, BufferHandle> BufferTable; //do this
 
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferMemory;
