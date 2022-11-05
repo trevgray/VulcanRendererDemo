@@ -193,16 +193,11 @@ private:
 
     //std::unordered_map<std::string, BufferHandle> BufferTable; //do this
 
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferMemory;
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexBufferMemory;
+    BufferHandle vertexBuffer;
+    BufferHandle indexBuffer;
 
-    std::vector<VkBuffer> cameraBuffers;
-    std::vector<VkDeviceMemory> cameraBuffersMemory;
-
-    std::vector<VkBuffer> globalLightBuffers;
-    std::vector<VkDeviceMemory> globalLightBuffersMemory;
+    std::vector<BufferHandle> cameraBuffers;
+    std::vector<BufferHandle> globalLightBuffers;
 
     std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkSemaphore> imageAvailableSemaphores;
@@ -240,17 +235,17 @@ private:
         /// A helper function for createVertexBuffer()
         uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
     void createIndexBuffer();
-    void createUniformBuffers(VkDeviceSize bufferSize, std::vector<VkBuffer>& uniformBuffer, std::vector<VkDeviceMemory>& uniformBuffersMemory);
+    void createUniformBuffers(VkDeviceSize bufferSize, std::vector<BufferHandle>& uniformBuffer);
     void createDescriptorPool();
     void createDescriptorSets();
-    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, BufferHandle& buffer);
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void createCommandBuffers();
     void updateCommandBuffers();
     void createSyncObjects();
     void cleanup();
     void cleanupSwapChain();
-    void cleanupUniformBuffer(std::vector<VkBuffer>& uniformBuffer, std::vector<VkDeviceMemory>& uniformBuffersMemory);
+    void cleanupUniformBuffer(std::vector<BufferHandle>& uniformBuffer);
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
     void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 

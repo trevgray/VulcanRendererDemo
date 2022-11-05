@@ -145,8 +145,8 @@ void VulkanRenderer::initVulkan() {
     createVertexBuffer(); //create a vertex buffer
     createIndexBuffer(); //build the index buffer
 
-    createUniformBuffers(sizeof(CameraUBO), cameraBuffers, cameraBuffersMemory); //build uniforms for the shaders
-    createUniformBuffers(sizeof(GlobalLightUBO), globalLightBuffers, globalLightBuffersMemory);
+    createUniformBuffers(sizeof(CameraUBO), cameraBuffers); //build uniforms for the shaders
+    createUniformBuffers(sizeof(GlobalLightUBO), globalLightBuffers);
 
     createDescriptorPool();
     createDescriptorSets();
@@ -177,8 +177,8 @@ void VulkanRenderer::cleanupSwapChain() {
 
     vkDestroySwapchainKHR(device, swapChain, nullptr);
 
-    cleanupUniformBuffer(cameraBuffers, cameraBuffersMemory);
-    cleanupUniformBuffer(globalLightBuffers, globalLightBuffersMemory);
+    cleanupUniformBuffer(cameraBuffers);
+    cleanupUniformBuffer(globalLightBuffers);
 
     //for (size_t i = 0; i < swapChainImages.size(); i++) {
     //    vkDestroyBuffer(device, cameraBuffers[i], nullptr); //destroy buffers
@@ -191,10 +191,10 @@ void VulkanRenderer::cleanupSwapChain() {
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 }
 
-void VulkanRenderer::cleanupUniformBuffer(std::vector<VkBuffer>& uniformBuffer, std::vector<VkDeviceMemory>& uniformBuffersMemory) {
+void VulkanRenderer::cleanupUniformBuffer(std::vector<BufferHandle>& uniformBuffer) {
     for (size_t i = 0; i < swapChainImages.size(); i++) { //for all the swap chains
-        vkDestroyBuffer(device, uniformBuffer[i], nullptr); //destroy buffers
-        vkFreeMemory(device, uniformBuffersMemory[i], nullptr); //free memory
+        vkDestroyBuffer(device, uniformBuffer[i].buffer, nullptr); //destroy buffers
+        vkFreeMemory(device, uniformBuffer[i].bufferMemory, nullptr); //free memory
     }
 }
 
@@ -209,11 +209,11 @@ void VulkanRenderer::cleanup() {
 
     vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
-    vkDestroyBuffer(device, indexBuffer, nullptr);
-    vkFreeMemory(device, indexBufferMemory, nullptr);
+    vkDestroyBuffer(device, indexBuffer.buffer, nullptr);
+    vkFreeMemory(device, indexBuffer.bufferMemory, nullptr);
 
-    vkDestroyBuffer(device, vertexBuffer, nullptr);
-    vkFreeMemory(device, vertexBufferMemory, nullptr);
+    vkDestroyBuffer(device, vertexBuffer.buffer, nullptr);
+    vkFreeMemory(device, vertexBuffer.bufferMemory, nullptr);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
@@ -261,8 +261,8 @@ void VulkanRenderer::recreateSwapChain() {
     createDepthResources();
     createFramebuffers();
 
-    createUniformBuffers(sizeof(CameraUBO), cameraBuffers, cameraBuffersMemory);
-    createUniformBuffers(sizeof(GlobalLightUBO), globalLightBuffers, globalLightBuffersMemory);
+    createUniformBuffers(sizeof(CameraUBO), cameraBuffers);
+    createUniformBuffers(sizeof(GlobalLightUBO), globalLightBuffers);
 
     createDescriptorPool();
     createDescriptorSets();
@@ -788,24 +788,23 @@ void VulkanRenderer::createTextureImage(std::string filename_) {
     //Create a VkBuffer - a vkbuffer has the buffer struct and device memory
     //A VkBuffer is the handle to the buffer - its a ID
     //a VkDeviceMemory is the buffer memory with all the info of the buffer
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    BufferHandle stagingBuffer;
+    createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer);
 
     void* data;
-    vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
+    vkMapMemory(device, stagingBuffer.bufferMemory, 0, imageSize, 0, &data);
     memcpy(data, image->pixels, static_cast<size_t>(imageSize));
-    vkUnmapMemory(device, stagingBufferMemory);
+    vkUnmapMemory(device, stagingBuffer.bufferMemory);
 
     //textureImage, textureImageMemory would be the combo of the vkbuffer and vkdevicememory
     createImage(image->w, image->h, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
     transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(image->w), static_cast<uint32_t>(image->h));
+    copyBufferToImage(stagingBuffer.buffer, textureImage, static_cast<uint32_t>(image->w), static_cast<uint32_t>(image->h));
     transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     //Clean up the buffers
-    vkDestroyBuffer(device, stagingBuffer, nullptr);
-    vkFreeMemory(device, stagingBufferMemory, nullptr);
+    vkDestroyBuffer(device, stagingBuffer.buffer, nullptr);
+    vkFreeMemory(device, stagingBuffer.bufferMemory, nullptr);
 
     SDL_FreeSurface(image);
 
@@ -1015,54 +1014,51 @@ void VulkanRenderer::loadModel(std::string filename_) {
 
 void VulkanRenderer::createVertexBuffer() {
     VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size(); //sizeof(Vertex) * numOfVertices
-    VkBuffer stagingBuffer; //temporary staging memory that will be used in the vertex buffer
-    VkDeviceMemory stagingBufferMemory;
+    BufferHandle stagingBuffer; //temporary staging memory that will be used in the vertex buffer
                                                                                                                        // these are being pulled in by reference, be constatant
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer);
 
     void* data;
-    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data); //staging memory is the memory we have access too
+    vkMapMemory(device, stagingBuffer.bufferMemory, 0, bufferSize, 0, &data); //staging memory is the memory we have access too
     memcpy(data, vertices.data(), (size_t)bufferSize);
-    vkUnmapMemory(device, stagingBufferMemory);
+    vkUnmapMemory(device, stagingBuffer.bufferMemory);
 
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory); //create the permanent buffer
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer); //create the permanent buffer
 
-    copyBuffer(stagingBuffer, vertexBuffer, bufferSize); //copy all the staging buffer into the vertex buffer
+    copyBuffer(stagingBuffer.buffer, vertexBuffer.buffer, bufferSize); //copy all the staging buffer into the vertex buffer
 
-    vkDestroyBuffer(device, stagingBuffer, nullptr); //destroy the temp memory
-    vkFreeMemory(device, stagingBufferMemory, nullptr);
+    vkDestroyBuffer(device, stagingBuffer.buffer, nullptr); //destroy the temp memory
+    vkFreeMemory(device, stagingBuffer.bufferMemory, nullptr);
 }
 
 void VulkanRenderer::createIndexBuffer() {
     //This is the same as the vertex buffer - check comments there
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    BufferHandle stagingBuffer;
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer);
 
     void* data;
-    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vkMapMemory(device, stagingBuffer.bufferMemory, 0, bufferSize, 0, &data);
     memcpy(data, indices.data(), (size_t)bufferSize);
-    vkUnmapMemory(device, stagingBufferMemory);
+    vkUnmapMemory(device, stagingBuffer.bufferMemory);
 
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer);
 
-    copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+    copyBuffer(stagingBuffer.buffer, indexBuffer.buffer, bufferSize);
 
-    vkDestroyBuffer(device, stagingBuffer, nullptr);
-    vkFreeMemory(device, stagingBufferMemory, nullptr);
+    vkDestroyBuffer(device, stagingBuffer.buffer, nullptr);
+    vkFreeMemory(device, stagingBuffer.bufferMemory, nullptr);
 }
 
-void VulkanRenderer::createUniformBuffers(VkDeviceSize bufferSize, std::vector<VkBuffer> &uniformBuffer, std::vector<VkDeviceMemory> &uniformBufferMemory) {
+void VulkanRenderer::createUniformBuffers(VkDeviceSize bufferSize, std::vector<BufferHandle> &uniformBuffer) {
     //swapChainImages are vk surfaces that we draw too (or something like that)
     uniformBuffer.resize(swapChainImages.size()); //create the memory in both of the swap chains - we need the memory on whatever frame we are on
 
-    uniformBufferMemory.resize(swapChainImages.size());
     //uniformBuffersMemory are the device memory - we need one for every swap chain
 
     for (size_t i = 0; i < swapChainImages.size(); i++) { //create the buffer inside each swap chain
-        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffer[i], uniformBufferMemory[i]);
+        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffer[i]);
     }
 }
 
@@ -1103,12 +1099,12 @@ void VulkanRenderer::createDescriptorSets() { //dynamic descriptors?
 
     for (size_t i = 0; i < swapChainImages.size(); i++) {
         VkDescriptorBufferInfo cameraBufferInfo{};
-        cameraBufferInfo.buffer = cameraBuffers[i];
+        cameraBufferInfo.buffer = cameraBuffers[i].buffer;
         cameraBufferInfo.offset = 0;
         cameraBufferInfo.range = sizeof(CameraUBO);
 
         VkDescriptorBufferInfo lightBufferInfo{};
-        lightBufferInfo.buffer = globalLightBuffers[i];
+        lightBufferInfo.buffer = globalLightBuffers[i].buffer;
         lightBufferInfo.offset = 0;
         lightBufferInfo.range = sizeof(GlobalLightUBO);
 
@@ -1149,30 +1145,30 @@ void VulkanRenderer::createDescriptorSets() { //dynamic descriptors?
     }
 }
 
-void VulkanRenderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
+void VulkanRenderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, BufferHandle& buffer) {
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = size;
     bufferInfo.usage = usage;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+    if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer.buffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to create buffer!");
     }
 
     VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
+    vkGetBufferMemoryRequirements(device, buffer.buffer, &memRequirements);
 
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
-    if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+    if (vkAllocateMemory(device, &allocInfo, nullptr, &buffer.bufferMemory) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate buffer memory!");
     }
 
-    vkBindBufferMemory(device, buffer, bufferMemory, 0);
+    vkBindBufferMemory(device, buffer.buffer, buffer.bufferMemory, 0);
 }
 
 VkCommandBuffer VulkanRenderer::beginSingleTimeCommands() {
@@ -1276,11 +1272,11 @@ void VulkanRenderer::updateCommandBuffers() {
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
         //this bind the vert and index data
-        VkBuffer vertexBuffers[] = { vertexBuffer };
+        VkBuffer vertexBuffers[] = { vertexBuffer.buffer };
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 
-        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &meshPushConst);
         //vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Matrix4) * 2, &meshPushConst);
@@ -1357,14 +1353,14 @@ void VulkanRenderer::SetMeshPushConstant(const Matrix4& model) {
 void VulkanRenderer::updateAllUniformBuffers(uint32_t currentImage) {
     void* data; //set a void pointer to store the data location inside the gpu - void pointer is a pointer to anything
     //uniformBuffersMemory[currentImage] stores the current image(buffer) that we want to work on
-    vkMapMemory(device, cameraBuffersMemory[currentImage], 0, sizeof(CameraUBO), 0, &data); //get the data location inside the gpu to put the ubo - its in a safe memory location inside the gpu
+    vkMapMemory(device, cameraBuffers[currentImage].bufferMemory, 0, sizeof(CameraUBO), 0, &data); //get the data location inside the gpu to put the ubo - its in a safe memory location inside the gpu
     //&data gets a pointer of a pointer (address of a pointer) - vkMapMemory could have returned a number, but it puts the address into the data variable
     memcpy(data, &cameraUBO, sizeof(CameraUBO)); //copys the memory of the ubo into the data location - memcpy(destination, address of structure, size of structure)
-    vkUnmapMemory(device, cameraBuffersMemory[currentImage]); //give the data location back - the gpu can now use the memory
+    vkUnmapMemory(device, cameraBuffers[currentImage].bufferMemory); //give the data location back - the gpu can now use the memory
 
-    vkMapMemory(device, globalLightBuffersMemory[currentImage], 0, sizeof(GlobalLightUBO), 0, &data);
+    vkMapMemory(device, globalLightBuffers[currentImage].bufferMemory, 0, sizeof(GlobalLightUBO), 0, &data);
     memcpy(data, &globalLightUBO, sizeof(GlobalLightUBO));
-    vkUnmapMemory(device, globalLightBuffersMemory[currentImage]);
+    vkUnmapMemory(device, globalLightBuffers[currentImage].bufferMemory);
 }
 
 //oh maybe using a hash table instead of a vector and make a updateUniformBuffer that takes the key
