@@ -50,7 +50,9 @@ void VulkanRenderer::Render() {
         throw std::runtime_error("failed to acquire swap chain image!");
     }
 
-    updateAllUniformBuffers(imageIndex); //update the buffers
+    //updateAllUniformBuffers(imageIndex); //update the buffers
+    updateUniformBuffers(cameraUBO, imageIndex, cameraBuffers, sizeof(CameraUBO));
+    updateUniformBuffers(globalLightUBO, imageIndex, globalLightBuffers, sizeof(GlobalLightUBO));
 
     if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
         vkWaitForFences(device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
@@ -134,7 +136,9 @@ void VulkanRenderer::initVulkan() {
     createImageViews(); //a place to draw stuff to
     createRenderPass(); //create the render pass with all the pixel information - create the buffers for the pixel info
     createDescriptorSetLayout(); //Sets up the location and layout for the uniforms in the shader
+
     createGraphicsPipeline("shaders/phong.vert.spv", "shaders/phong.frag.spv"); //set up a pipeline with a shader - each shader will have its own pipeline
+
     createCommandPool(); //a command pool holds command buffers
     createDepthResources(); //Figure out the depth format
     createFramebuffers(); //create a frame buffer - a point in between swap chain to the SDL window
@@ -142,8 +146,6 @@ void VulkanRenderer::initVulkan() {
     createTextureImage("./textures/mario_main.png"); //loads a image and moves it into the gpu
 
     loadModel("./meshes/Mario.obj"); //using tiny obj to load the model and preform vertex deduplication
-    createVertexBuffer(); //create a vertex buffer
-    createIndexBuffer(); //build the index buffer
 
     createUniformBuffers(sizeof(CameraUBO), cameraBuffers); //build uniforms for the shaders
     createUniformBuffers(sizeof(GlobalLightUBO), globalLightBuffers);
@@ -193,8 +195,8 @@ void VulkanRenderer::cleanupSwapChain() {
 
 void VulkanRenderer::cleanupUniformBuffer(std::vector<BufferHandle>& uniformBuffer) {
     for (size_t i = 0; i < swapChainImages.size(); i++) { //for all the swap chains
-        vkDestroyBuffer(device, uniformBuffer[i].buffer, nullptr); //destroy buffers
-        vkFreeMemory(device, uniformBuffer[i].bufferMemory, nullptr); //free memory
+        vkDestroyBuffer(device, uniformBuffer[i].bufferID, nullptr); //destroy buffers
+        vkFreeMemory(device, uniformBuffer[i].bufferMemoryID, nullptr); //free memory
     }
 }
 
@@ -209,11 +211,11 @@ void VulkanRenderer::cleanup() {
 
     vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
-    vkDestroyBuffer(device, indexBuffer.buffer, nullptr);
-    vkFreeMemory(device, indexBuffer.bufferMemory, nullptr);
+    vkDestroyBuffer(device, indexBuffer.bufferID, nullptr);
+    vkFreeMemory(device, indexBuffer.bufferMemoryID, nullptr);
 
-    vkDestroyBuffer(device, vertexBuffer.buffer, nullptr);
-    vkFreeMemory(device, vertexBuffer.bufferMemory, nullptr);
+    vkDestroyBuffer(device, vertexBuffer.bufferID, nullptr);
+    vkFreeMemory(device, vertexBuffer.bufferMemoryID, nullptr);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
@@ -785,26 +787,23 @@ void VulkanRenderer::createTextureImage(std::string filename_) {
     ///image->format
     VkDeviceSize imageSize = image->w * image->h * 4; //stores only rgba textures - adding rgb textures could be a project to make the renderer better
 
-    //Create a VkBuffer - a vkbuffer has the buffer struct and device memory
-    //A VkBuffer is the handle to the buffer - its a ID
-    //a VkDeviceMemory is the buffer memory with all the info of the buffer
     BufferHandle stagingBuffer;
     createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer);
 
     void* data;
-    vkMapMemory(device, stagingBuffer.bufferMemory, 0, imageSize, 0, &data);
+    vkMapMemory(device, stagingBuffer.bufferMemoryID, 0, imageSize, 0, &data);
     memcpy(data, image->pixels, static_cast<size_t>(imageSize));
-    vkUnmapMemory(device, stagingBuffer.bufferMemory);
+    vkUnmapMemory(device, stagingBuffer.bufferMemoryID);
 
-    //textureImage, textureImageMemory would be the combo of the vkbuffer and vkdevicememory
+    //textureImage, textureImageMemory would be the combo of the vkimage(vkBuffer) and vkdevicememory
     createImage(image->w, image->h, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
     transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    copyBufferToImage(stagingBuffer.buffer, textureImage, static_cast<uint32_t>(image->w), static_cast<uint32_t>(image->h));
+    copyBufferToImage(stagingBuffer.bufferID, textureImage, static_cast<uint32_t>(image->w), static_cast<uint32_t>(image->h));
     transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     //Clean up the buffers
-    vkDestroyBuffer(device, stagingBuffer.buffer, nullptr);
-    vkFreeMemory(device, stagingBuffer.bufferMemory, nullptr);
+    vkDestroyBuffer(device, stagingBuffer.bufferID, nullptr);
+    vkFreeMemory(device, stagingBuffer.bufferMemoryID, nullptr);
 
     SDL_FreeSurface(image);
 
@@ -1010,45 +1009,49 @@ void VulkanRenderer::loadModel(std::string filename_) {
             indices.push_back(uniqueVertices[vertex]);
         }
     }
+
+    createVertexBuffer(); //create a vertex buffer
+    createIndexBuffer(); //build the index buffer
+    //Create an array of MemoryHandles
 }
 
 void VulkanRenderer::createVertexBuffer() {
-    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size(); //sizeof(Vertex) * numOfVertices
+    VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size(); //sizeof(Vertex) * numOfVertices
     BufferHandle stagingBuffer; //temporary staging memory that will be used in the vertex buffer
                                                                                                                        // these are being pulled in by reference, be constatant
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer);
 
     void* data;
-    vkMapMemory(device, stagingBuffer.bufferMemory, 0, bufferSize, 0, &data); //staging memory is the memory we have access too
+    vkMapMemory(device, stagingBuffer.bufferMemoryID, 0, bufferSize, 0, &data); //staging memory is the memory we have access too
     memcpy(data, vertices.data(), (size_t)bufferSize);
-    vkUnmapMemory(device, stagingBuffer.bufferMemory);
+    vkUnmapMemory(device, stagingBuffer.bufferMemoryID);
 
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer); //create the permanent buffer
 
-    copyBuffer(stagingBuffer.buffer, vertexBuffer.buffer, bufferSize); //copy all the staging buffer into the vertex buffer
+    copyBuffer(stagingBuffer.bufferID, vertexBuffer.bufferID, bufferSize); //copy all the staging buffer into the vertex buffer
 
-    vkDestroyBuffer(device, stagingBuffer.buffer, nullptr); //destroy the temp memory
-    vkFreeMemory(device, stagingBuffer.bufferMemory, nullptr);
+    vkDestroyBuffer(device, stagingBuffer.bufferID, nullptr); //destroy the temp memory
+    vkFreeMemory(device, stagingBuffer.bufferMemoryID, nullptr);
 }
 
 void VulkanRenderer::createIndexBuffer() {
     //This is the same as the vertex buffer - check comments there
-    VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+    VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
 
     BufferHandle stagingBuffer;
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer);
 
     void* data;
-    vkMapMemory(device, stagingBuffer.bufferMemory, 0, bufferSize, 0, &data);
+    vkMapMemory(device, stagingBuffer.bufferMemoryID, 0, bufferSize, 0, &data);
     memcpy(data, indices.data(), (size_t)bufferSize);
-    vkUnmapMemory(device, stagingBuffer.bufferMemory);
+    vkUnmapMemory(device, stagingBuffer.bufferMemoryID);
 
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer);
 
-    copyBuffer(stagingBuffer.buffer, indexBuffer.buffer, bufferSize);
+    copyBuffer(stagingBuffer.bufferID, indexBuffer.bufferID, bufferSize);
 
-    vkDestroyBuffer(device, stagingBuffer.buffer, nullptr);
-    vkFreeMemory(device, stagingBuffer.bufferMemory, nullptr);
+    vkDestroyBuffer(device, stagingBuffer.bufferID, nullptr);
+    vkFreeMemory(device, stagingBuffer.bufferMemoryID, nullptr);
 }
 
 void VulkanRenderer::createUniformBuffers(VkDeviceSize bufferSize, std::vector<BufferHandle> &uniformBuffer) {
@@ -1084,7 +1087,7 @@ void VulkanRenderer::createDescriptorPool() { //descriptor pool holds descriptor
     }
 }
 
-void VulkanRenderer::createDescriptorSets() { //dynamic descriptors?
+void VulkanRenderer::createDescriptorSets() { //make two descriptors sets for two images
     std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -1099,12 +1102,12 @@ void VulkanRenderer::createDescriptorSets() { //dynamic descriptors?
 
     for (size_t i = 0; i < swapChainImages.size(); i++) {
         VkDescriptorBufferInfo cameraBufferInfo{};
-        cameraBufferInfo.buffer = cameraBuffers[i].buffer;
+        cameraBufferInfo.buffer = cameraBuffers[i].bufferID;
         cameraBufferInfo.offset = 0;
         cameraBufferInfo.range = sizeof(CameraUBO);
 
         VkDescriptorBufferInfo lightBufferInfo{};
-        lightBufferInfo.buffer = globalLightBuffers[i].buffer;
+        lightBufferInfo.buffer = globalLightBuffers[i].bufferID;
         lightBufferInfo.offset = 0;
         lightBufferInfo.range = sizeof(GlobalLightUBO);
 
@@ -1152,23 +1155,23 @@ void VulkanRenderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, V
     bufferInfo.usage = usage;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer.buffer) != VK_SUCCESS) {
+    if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer.bufferID) != VK_SUCCESS) {
         throw std::runtime_error("failed to create buffer!");
     }
 
     VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(device, buffer.buffer, &memRequirements);
+    vkGetBufferMemoryRequirements(device, buffer.bufferID, &memRequirements);
 
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
-    if (vkAllocateMemory(device, &allocInfo, nullptr, &buffer.bufferMemory) != VK_SUCCESS) {
+    if (vkAllocateMemory(device, &allocInfo, nullptr, &buffer.bufferMemoryID) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate buffer memory!");
     }
 
-    vkBindBufferMemory(device, buffer.buffer, buffer.bufferMemory, 0);
+    vkBindBufferMemory(device, buffer.bufferID, buffer.bufferMemoryID, 0);
 }
 
 VkCommandBuffer VulkanRenderer::beginSingleTimeCommands() {
@@ -1249,6 +1252,10 @@ void VulkanRenderer::updateCommandBuffers() {
         if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS) { //set the commands for both the buffers
             throw std::runtime_error("failed to begin recording command buffer!");
         }
+        //set the background colour
+        std::array<VkClearValue, 2> clearValues{};
+        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f }; //rgba
+        clearValues[1].depthStencil = { 1.0f, 0 };
 
         VkRenderPassBeginInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -1256,36 +1263,44 @@ void VulkanRenderer::updateCommandBuffers() {
         renderPassInfo.framebuffer = swapChainFramebuffers[i];
         renderPassInfo.renderArea.offset = { 0, 0 };
         renderPassInfo.renderArea.extent = swapChainExtent;
-
-        //clear the screen and set the background colour
-        std::array<VkClearValue, 2> clearValues{};
-        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f }; //rgba
-        clearValues[1].depthStencil = { 1.0f, 0 };
+        //clear the screen with the background colour
         renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
         renderPassInfo.pClearValues = clearValues.data();
 
-        //probably start the loop for all the pipelines here
-
+        //THIS BEGINS THE RENDER PASS (Clean the screen and start drawing)
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+        //probably start the loop for all the pipelines here
         //Choose the pipeline and bind to it
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
+        vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &meshPushConst[0]);
         //this bind the vert and index data
-        VkBuffer vertexBuffers[] = { vertexBuffer.buffer };
+        VkBuffer vertexBuffers[] = { vertexBuffer.bufferID };
         VkDeviceSize offsets[] = { 0 };
-        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-
-        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-
-        vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &meshPushConst);
-        //vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Matrix4) * 2, &meshPushConst);
+        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets); //&vertexBuffer.bufferID will also work, because it wants the first binding (the meshes binding)
+        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer.bufferID, 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
 
-        //vkCmdDrawIndexed is for the vertex De-duplication, we draw the indexed vertexes
+        //vkCmdDrawIndexed is for the vertex De-duplication, we draw the indexed vertices
         vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0); //drawing the buffers
 
+        ////////////////////SECOND MODEL
+
+        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+        vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &meshPushConst[1]);
+
+        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer.bufferID, 0, VK_INDEX_TYPE_UINT32);
+
+        vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+
+        //vkCmdDrawIndexed is for the vertex De-duplication, we draw the indexed vertices
+        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0); //drawing the buffers
+
+        ///////END RENDER PASS
         vkCmdEndRenderPass(commandBuffers[i]);
 
         if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
@@ -1343,25 +1358,28 @@ void VulkanRenderer::SetGlobalLightUBO(const GlobalLightUBO& gLights) {
 }
 
 void VulkanRenderer::SetMeshPushConstant(const Matrix4& model) {
-    meshPushConst.model = model;
-    meshPushConst.normal = MMath::transpose(MMath::inverse(model));
+    meshPushConst[0].model = model;
+    meshPushConst[0].normal = MMath::transpose(MMath::inverse(model));
+
+    meshPushConst[1].model = MMath::translate(Vec3(3.0f, 0.0f, 0.0f)) * model;
+    meshPushConst[1].normal = MMath::transpose(MMath::inverse(model));
 
     updateCommandBuffers(); //for updating push consts
     //push consts are very fast, but they are limited in space - 128 bytes
 }
 
-void VulkanRenderer::updateAllUniformBuffers(uint32_t currentImage) {
-    void* data; //set a void pointer to store the data location inside the gpu - void pointer is a pointer to anything
-    //uniformBuffersMemory[currentImage] stores the current image(buffer) that we want to work on
-    vkMapMemory(device, cameraBuffers[currentImage].bufferMemory, 0, sizeof(CameraUBO), 0, &data); //get the data location inside the gpu to put the ubo - its in a safe memory location inside the gpu
-    //&data gets a pointer of a pointer (address of a pointer) - vkMapMemory could have returned a number, but it puts the address into the data variable
-    memcpy(data, &cameraUBO, sizeof(CameraUBO)); //copys the memory of the ubo into the data location - memcpy(destination, address of structure, size of structure)
-    vkUnmapMemory(device, cameraBuffers[currentImage].bufferMemory); //give the data location back - the gpu can now use the memory
-
-    vkMapMemory(device, globalLightBuffers[currentImage].bufferMemory, 0, sizeof(GlobalLightUBO), 0, &data);
-    memcpy(data, &globalLightUBO, sizeof(GlobalLightUBO));
-    vkUnmapMemory(device, globalLightBuffers[currentImage].bufferMemory);
-}
+//void VulkanRenderer::updateAllUniformBuffers(uint32_t currentImage) {
+//    void* data; //set a void pointer to store the data location inside the gpu - void pointer is a pointer to anything
+//    //uniformBuffersMemory[currentImage] stores the current image(buffer) that we want to work on
+//    vkMapMemory(device, cameraBuffers[currentImage].bufferMemoryID, 0, sizeof(CameraUBO), 0, &data); //get the data location inside the gpu to put the ubo - its in a safe memory location inside the gpu
+//    //&data gets a pointer of a pointer (address of a pointer) - vkMapMemory could have returned a number, but it puts the address into the data variable
+//    memcpy(data, &cameraUBO, sizeof(CameraUBO)); //copys the memory of the ubo into the data location - memcpy(destination, address of structure, size of structure)
+//    vkUnmapMemory(device, cameraBuffers[currentImage].bufferMemoryID); //give the data location back - the gpu can now use the memory
+//
+//    vkMapMemory(device, globalLightBuffers[currentImage].bufferMemoryID, 0, sizeof(GlobalLightUBO), 0, &data);
+//    memcpy(data, &globalLightUBO, sizeof(GlobalLightUBO));
+//    vkUnmapMemory(device, globalLightBuffers[currentImage].bufferMemoryID);
+//}
 
 //oh maybe using a hash table instead of a vector and make a updateUniformBuffer that takes the key
 

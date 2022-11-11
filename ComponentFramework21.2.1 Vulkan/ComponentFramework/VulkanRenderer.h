@@ -115,8 +115,11 @@ struct QueueFamilyIndices {
     }
 
 struct BufferHandle {
-    VkBuffer buffer;
-    VkDeviceMemory bufferMemory;
+    //Create a BufferHandle - a BufferHandle has the buffer struct and device memory
+    //A VkBuffer is the handle to the buffer - its a ID
+    //a VkDeviceMemory is the buffer memory with all the info of the buffer
+    VkBuffer bufferID;
+    VkDeviceMemory bufferMemoryID;
 };
 
  
@@ -155,7 +158,16 @@ public:
     void SetGlobalLightUBO(const GlobalLightUBO& gLights);
 
     void SetMeshPushConstant(const Matrix4& model);
-    void updateAllUniformBuffers(uint32_t currentImage);
+
+    template<typename UniformBuffer> void updateUniformBuffers(UniformBuffer memoryObject, uint32_t currentImage, std::vector<BufferHandle> buffer, size_t bufferSize) {
+        void* data; //set a void pointer to store the data location inside the gpu - void pointer is a pointer to anything
+        //uniformBuffersMemory[currentImage] stores the current image(buffer) that we want to work on
+        vkMapMemory(device, buffer[currentImage].bufferMemoryID, 0, bufferSize, 0, &data); //get the data location inside the gpu to put the ubo - its in a safe memory location inside the gpu
+        //&data gets a pointer of a pointer (address of a pointer) - vkMapMemory could have returned a number, but it puts the address into the data variable
+        memcpy(data, &memoryObject, bufferSize); //copys the memory of the ubo into the data location - memcpy(destination, address of structure, size of structure)
+        vkUnmapMemory(device, buffer[currentImage].bufferMemoryID); //give the data location back - the gpu can now use the memory
+    }
+
     SDL_Window* GetWindow() {
         return window;
     }
@@ -163,11 +175,13 @@ public:
 private:
     CameraUBO cameraUBO;
     GlobalLightUBO globalLightUBO;
-    MeshPushConstants meshPushConst;
+    MeshPushConstants meshPushConst[2];
 
     const size_t MAX_FRAMES_IN_FLIGHT = 2; //double buffering
+
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
+
     SDL_Event sdlEvent;
     uint32_t windowWidth;
     uint32_t windowHeight;
@@ -191,10 +205,11 @@ private:
 
     VkCommandPool commandPool;
 
-    //std::unordered_map<std::string, BufferHandle> BufferTable; //do this
-
+    //make these std::unordered_maps
     BufferHandle vertexBuffer;
     BufferHandle indexBuffer;
+
+    //std::unordered_map<std::string, BufferHandle> UniformBuffers;
 
     std::vector<BufferHandle> cameraBuffers;
     std::vector<BufferHandle> globalLightBuffers;
@@ -271,8 +286,11 @@ private:
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
+    //Make a BufferHandle
     VkImage textureImage;
     VkDeviceMemory textureImageMemory;
+
+    //This is what is passed into the gpu
     VkImageView textureImageView;
     VkSampler textureSampler;
 
@@ -294,7 +312,6 @@ private:
 
     static std::vector<char> readFile(const std::string& filename);
 
-   
 };
 #endif 
 
