@@ -1134,7 +1134,7 @@ void VulkanRenderer::createDescriptorSets() { //make two descriptors sets for tw
         descriptorWrites[1].dstArrayElement = 0;
         descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].pImageInfo = &imageInfo;
+        descriptorWrites[1].pImageInfo = &imageInfo; //change the imageinfo for each texture
 
         descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[2].dstSet = descriptorSets[i];
@@ -1269,36 +1269,33 @@ void VulkanRenderer::updateCommandBuffers() {
 
         //THIS BEGINS THE RENDER PASS (Clean the screen and start drawing)
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        //probably start the loop for all the pipelines here
-        //Choose the pipeline and bind to it
-        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-
-        vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &meshPushConst[0]);
-        //this bind the vert and index data
         VkBuffer vertexBuffers[] = { vertexBuffer.bufferID };
         VkDeviceSize offsets[] = { 0 };
-        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets); //&vertexBuffer.bufferID will also work, because it wants the first binding (the meshes binding)
-        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer.bufferID, 0, VK_INDEX_TYPE_UINT32);
 
-        vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+        //probably start the loop for all the pipelines here (like have a outer loop)
+        for (auto actor : actorGraph) {
+            //Choose the pipeline and bind to it
+            vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
-        //vkCmdDrawIndexed is for the vertex De-duplication, we draw the indexed vertices
-        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0); //drawing the buffers
+            vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &actor.second.mesh);
+            
+            vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &vertexBuffer.bufferID, offsets); //&vertexBuffer.bufferID will also work, because it wants the first binding (the meshes binding)
+            vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer.bufferID, 0, VK_INDEX_TYPE_UINT32);
+
+            vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+
+            //vkCmdDrawIndexed is for the vertex De-duplication, we draw the indexed vertices
+            vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0); //drawing the buffers
+        }
 
         ////////////////////SECOND MODEL
 
-        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-
-        vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &meshPushConst[1]);
-
-        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer.bufferID, 0, VK_INDEX_TYPE_UINT32);
-
-        vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
-
-        //vkCmdDrawIndexed is for the vertex De-duplication, we draw the indexed vertices
-        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0); //drawing the buffers
+        //vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+        //vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &actorGraph["1"].mesh);
+        //vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+        //vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer.bufferID, 0, VK_INDEX_TYPE_UINT32);
+        //vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+        //vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0); //drawing the buffers
 
         ///////END RENDER PASS
         vkCmdEndRenderPass(commandBuffers[i]);
@@ -1358,11 +1355,11 @@ void VulkanRenderer::SetGlobalLightUBO(const GlobalLightUBO& gLights) {
 }
 
 void VulkanRenderer::SetMeshPushConstant(const Matrix4& model) {
-    meshPushConst[0].model = model;
-    meshPushConst[0].normal = MMath::transpose(MMath::inverse(model));
+    actorGraph["0"].mesh.model = model;
+    actorGraph["0"].mesh.normal = MMath::transpose(MMath::inverse(model));
 
-    meshPushConst[1].model = MMath::translate(Vec3(3.0f, 0.0f, 0.0f)) * model;
-    meshPushConst[1].normal = MMath::transpose(MMath::inverse(model));
+    actorGraph["1"].mesh.model = MMath::translate(Vec3(3.0f, 0.0f, 0.0f)) * model;
+    actorGraph["1"].mesh.normal = MMath::transpose(MMath::inverse(model));
 
     updateCommandBuffers(); //for updating push consts
     //push consts are very fast, but they are limited in space - 128 bytes

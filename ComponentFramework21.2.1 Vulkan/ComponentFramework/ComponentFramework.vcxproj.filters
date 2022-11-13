@@ -31,6 +31,12 @@
     <Filter Include="Source Files\Renderers">
       <UniqueIdentifier>{30c80976-ed84-4ca8-ab3a-bd86aa11c0ac}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\TempClasses">
+      <UniqueIdentifier>{f1b617d9-437c-4693-8586-d60944c8ad4f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\TempClasses">
+      <UniqueIdentifier>{1ec2a976-c7b8-46a9-90ee-2f0e5fa1709d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp">
@@ -65,6 +71,9 @@
     </ClCompile>
     <ClCompile Include="Camera.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Actor.cpp">
+      <Filter>Source Files\TempClasses</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -121,6 +130,9 @@
     </ClInclude>
     <ClInclude Include="GlobalLight.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Actor.h">
+      <Filter>Header Files\TempClasses</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -24,11 +24,13 @@
 #include "MMath.h"
 #include "Hash.h"
 #include "GlobalLight.h"
+
+#include "Actor.h"
+
 using namespace MATH;
 
 
 #include "Renderer.h"
-
 
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
@@ -133,11 +135,6 @@ struct CameraUBO {
 //    Vec4 lightColour[4];
 //};
 
-struct MeshPushConstants {
-    Matrix4 model;
-    Matrix4 normal; //it could be a matrix3 because it just rotation - but we should keep it as mat4 because its a multiple of 4
-};
-
 class VulkanRenderer : public Renderer {
 public:
     /// C11 precautions - delete the auto copier and other things
@@ -175,7 +172,8 @@ public:
 private:
     CameraUBO cameraUBO;
     GlobalLightUBO globalLightUBO;
-    MeshPushConstants meshPushConst[2];
+
+    std::unordered_map<std::string, Actor> actorGraph;
 
     const size_t MAX_FRAMES_IN_FLIGHT = 2; //double buffering
 
