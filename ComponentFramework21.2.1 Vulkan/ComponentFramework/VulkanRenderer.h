@@ -177,9 +177,6 @@ private:
 
     const size_t MAX_FRAMES_IN_FLIGHT = 2; //double buffering
 
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-
     SDL_Event sdlEvent;
     uint32_t windowWidth;
     uint32_t windowHeight;
@@ -192,7 +189,7 @@ private:
     VkRenderPass renderPass;
     VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
-    VkPipeline graphicsPipeline; //maybe make a unordered map of them
+    VkPipeline graphicsPipelineID; //maybe make a unordered map of them
 
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
@@ -206,6 +203,8 @@ private:
     //make these std::unordered_maps
     BufferHandle vertexBuffer;
     BufferHandle indexBuffer;
+    VkDeviceSize indexBufferSize;
+    //IndexedBufferHandle modelBuffer;
 
     //std::unordered_map<std::string, BufferHandle> UniformBuffers;
 
@@ -234,7 +233,7 @@ private:
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
     void createRenderPass();
     void createDescriptorSetLayout();
-    void createGraphicsPipeline(std::string vFilename, std::string fragFilename);
+    void createGraphicsPipeline(std::string vFilename, std::string fragFilename, VkPipeline& graphicsPipelineRef);
     void createFramebuffers();
     void createCommandPool();
     void createDepthResources();
@@ -243,11 +242,11 @@ private:
     void createTextureSampler();
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
         VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-    void loadModel(std::string filename_);
-    void createVertexBuffer();
+    void loadModel(std::string filename_, BufferHandle& vertexBuffer, BufferHandle& indexBuffer);
+    void createVertexBuffer(BufferHandle& vertexBuffer, std::vector<Vertex> vertices);
         /// A helper function for createVertexBuffer()
         uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-    void createIndexBuffer();
+    void createIndexBuffer(BufferHandle& indexBuffer, std::vector<uint32_t> indices);
     void createUniformBuffers(VkDeviceSize bufferSize, std::vector<BufferHandle>& uniformBuffer);
     void createDescriptorPool();
     void createDescriptorSets();
