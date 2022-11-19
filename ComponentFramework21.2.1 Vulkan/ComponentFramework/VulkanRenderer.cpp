@@ -1,5 +1,7 @@
 #include "VulkanRenderer.h"
 
+#include "Actor.h"
+
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 
@@ -143,9 +145,11 @@ void VulkanRenderer::initVulkan() {
     createDepthResources(); //Figure out the depth format
     createFramebuffers(); //create a frame buffer - a point in between swap chain to the SDL window
 
-    createTextureImage("./textures/mario_main.png"); //loads a image and moves it into the gpu
+    createTextureImage("./textures/mario_mime.png"); //loads a image and moves it into the gpu
 
-    loadModel("./meshes/Mario.obj", vertexBuffer, indexBuffer); //using tiny obj to load the model and preform vertex deduplication
+    //using tiny obj to load the model and preform vertex deduplication
+    loadModel("./meshes/Mario.obj", actorGraph["0"].vertexBuffer, actorGraph["0"].indexBuffer, actorGraph["0"].indexBufferSize);
+    loadModel("./meshes/Skull.obj", actorGraph["1"].vertexBuffer, actorGraph["1"].indexBuffer, actorGraph["1"].indexBufferSize);
 
     createUniformBuffers(sizeof(CameraUBO), cameraBuffers); //build uniforms for the shaders
     createUniformBuffers(sizeof(GlobalLightUBO), globalLightBuffers);
@@ -211,11 +215,13 @@ void VulkanRenderer::cleanup() {
 
     vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
-    vkDestroyBuffer(device, indexBuffer.bufferID, nullptr);
-    vkFreeMemory(device, indexBuffer.bufferMemoryID, nullptr);
+    for (auto actor : actorGraph) {
+        vkDestroyBuffer(device, actor.second.indexBuffer.bufferID, nullptr);
+        vkFreeMemory(device, actor.second.indexBuffer.bufferMemoryID, nullptr);
 
-    vkDestroyBuffer(device, vertexBuffer.bufferID, nullptr);
-    vkFreeMemory(device, vertexBuffer.bufferMemoryID, nullptr);
+        vkDestroyBuffer(device, actor.second.vertexBuffer.bufferID, nullptr);
+        vkFreeMemory(device, actor.second.vertexBuffer.bufferMemoryID, nullptr);
+    }
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
@@ -967,7 +973,8 @@ void VulkanRenderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t 
     endSingleTimeCommands(commandBuffer);
 }
 
-void VulkanRenderer::loadModel(std::string filename_, BufferHandle& vertexBuffer, BufferHandle& indexBuffer) {
+void VulkanRenderer::loadModel(std::string filename_, BufferHandle& vertexBuffer, BufferHandle& indexBuffer, VkDeviceSize& indexBufferSize) {
+    //using tiny obj to load the model and preform vertex deduplication
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
@@ -1014,11 +1021,11 @@ void VulkanRenderer::loadModel(std::string filename_, BufferHandle& vertexBuffer
     }
 
     createVertexBuffer(vertexBuffer, vertices); //create a vertex buffer
-    createIndexBuffer(indexBuffer, indices); //build the index buffer
+    createIndexBuffer(indexBuffer, indices, indexBufferSize); //build the index buffer
     //Create an array of MemoryHandles
 }
 
-void VulkanRenderer::createVertexBuffer(BufferHandle& vertexBuffer, std::vector<Vertex> vertices) {
+void VulkanRenderer::createVertexBuffer(BufferHandle& vertexBuffer, const std::vector<Vertex> vertices) {
     VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size(); //sizeof(Vertex) * numOfVertices
     BufferHandle stagingBuffer; //temporary staging memory that will be used in the vertex buffer
                                                                                                                        // these are being pulled in by reference, be constatant
@@ -1037,7 +1044,7 @@ void VulkanRenderer::createVertexBuffer(BufferHandle& vertexBuffer, std::vector<
     vkFreeMemory(device, stagingBuffer.bufferMemoryID, nullptr);
 }
 
-void VulkanRenderer::createIndexBuffer(BufferHandle& indexBuffer, std::vector<uint32_t> indices) {
+void VulkanRenderer::createIndexBuffer(BufferHandle& indexBuffer, const std::vector<uint32_t> indices, VkDeviceSize& indexBufferSize) {
     //This is the same as the vertex buffer - check comments there
     indexBufferSize = sizeof(uint32_t) * indices.size();
 
@@ -1272,7 +1279,7 @@ void VulkanRenderer::updateCommandBuffers() {
 
         //THIS BEGINS THE RENDER PASS (Clean the screen and start drawing)
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-        VkBuffer vertexBuffers[] = { vertexBuffer.bufferID };
+        //VkBuffer vertexBuffers[] = { vertexBuffer.bufferID };
         VkDeviceSize offsets[] = { 0 };
 
         //probably start the loop for all the pipelines here (like have a outer loop)
@@ -1282,13 +1289,13 @@ void VulkanRenderer::updateCommandBuffers() {
 
             vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &actor.second.mesh);
             
-            vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &vertexBuffer.bufferID, offsets); //&vertexBuffer.bufferID will also work, because it wants the first binding (the meshes binding)
-            vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer.bufferID, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &actor.second.vertexBuffer.bufferID, offsets); //&vertexBuffer.bufferID will also work, because it wants the first binding (the meshes binding)
+            vkCmdBindIndexBuffer(commandBuffers[i], actor.second.indexBuffer.bufferID, 0, VK_INDEX_TYPE_UINT32);
 
             vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
 
             //vkCmdDrawIndexed is for the vertex De-duplication, we draw the indexed vertices
-            vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indexBufferSize), 1, 0, 0, 0); //drawing the buffers
+            vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(actor.second.indexBufferSize), 1, 0, 0, 0); //drawing the buffers
         }
 
         ////////////////////SECOND MODEL

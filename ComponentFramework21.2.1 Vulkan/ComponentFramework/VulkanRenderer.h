@@ -25,7 +25,8 @@
 #include "Hash.h"
 #include "GlobalLight.h"
 
-#include "Actor.h"
+class Actor;
+//#include "Actor.h"
 
 using namespace MATH;
 
@@ -201,9 +202,9 @@ private:
     VkCommandPool commandPool;
 
     //make these std::unordered_maps
-    BufferHandle vertexBuffer;
-    BufferHandle indexBuffer;
-    VkDeviceSize indexBufferSize;
+    //BufferHandle vertexBuffer;
+    //BufferHandle indexBuffer;
+    //VkDeviceSize indexBufferSize;
     //IndexedBufferHandle modelBuffer;
 
     //std::unordered_map<std::string, BufferHandle> UniformBuffers;
@@ -242,11 +243,11 @@ private:
     void createTextureSampler();
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
         VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-    void loadModel(std::string filename_, BufferHandle& vertexBuffer, BufferHandle& indexBuffer);
+    void loadModel(std::string filename_, BufferHandle& vertexBuffer, BufferHandle& indexBuffer, VkDeviceSize& indexBufferSize);
     void createVertexBuffer(BufferHandle& vertexBuffer, std::vector<Vertex> vertices);
         /// A helper function for createVertexBuffer()
         uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-    void createIndexBuffer(BufferHandle& indexBuffer, std::vector<uint32_t> indices);
+    void createIndexBuffer(BufferHandle& indexBuffer, std::vector<uint32_t> indices, VkDeviceSize& indexBufferSize);
     void createUniformBuffers(VkDeviceSize bufferSize, std::vector<BufferHandle>& uniformBuffer);
     void createDescriptorPool();
     void createDescriptorSets();

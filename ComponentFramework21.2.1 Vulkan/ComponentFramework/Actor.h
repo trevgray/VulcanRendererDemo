@@ -1,5 +1,6 @@
 #pragma once
 #include "Matrix.h"
+#include "VulkanRenderer.h"
 
 struct MeshPushConstants {
     MATH::Matrix4 model;
@@ -9,7 +10,13 @@ struct MeshPushConstants {
 class Actor {
 public:
     Actor();
+    ~Actor();
     MeshPushConstants mesh;
+    //
+    BufferHandle vertexBuffer;
+    BufferHandle indexBuffer;
+    VkDeviceSize indexBufferSize;
+    //
 
 };
 
