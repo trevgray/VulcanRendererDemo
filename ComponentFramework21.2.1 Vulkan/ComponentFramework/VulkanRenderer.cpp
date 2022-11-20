@@ -145,17 +145,22 @@ void VulkanRenderer::initVulkan() {
     createDepthResources(); //Figure out the depth format
     createFramebuffers(); //create a frame buffer - a point in between swap chain to the SDL window
 
-    createTextureImage("./textures/mario_mime.png"); //loads a image and moves it into the gpu
+    createTextureImage("./textures/mario_mime.png", actorGraph["0"].textureImageView); //loads a image and moves it into the gpu
+    createTextureImage("./textures/skulltest.png", actorGraph["1"].textureImageView);
+    createTextureImage("./textures/mario_fire.png", actorGraph["2"].textureImageView);
 
     //using tiny obj to load the model and preform vertex deduplication
     loadModel("./meshes/Mario.obj", actorGraph["0"].vertexBuffer, actorGraph["0"].indexBuffer, actorGraph["0"].indexBufferSize);
     loadModel("./meshes/Skull.obj", actorGraph["1"].vertexBuffer, actorGraph["1"].indexBuffer, actorGraph["1"].indexBufferSize);
+    loadModel("./meshes/Cube.obj", actorGraph["2"].vertexBuffer, actorGraph["2"].indexBuffer, actorGraph["2"].indexBufferSize);
 
     createUniformBuffers(sizeof(CameraUBO), cameraBuffers); //build uniforms for the shaders
     createUniformBuffers(sizeof(GlobalLightUBO), globalLightBuffers);
 
     createDescriptorPool();
+
     createDescriptorSets();
+    //createDescriptorSets(actorGraph["1"].descriptorSets);
 
     createCommandBuffers(); //build the command buffers that are stored in the command pools - cutting the ties between gpu and cpu - build a command buffer so the cpu and gpu can work independently
     updateCommandBuffers(); //Updates the command buffers - for push consts, etc
@@ -208,7 +213,9 @@ void VulkanRenderer::cleanup() {
     cleanupSwapChain();
 
     vkDestroySampler(device, textureSampler, nullptr);
-    vkDestroyImageView(device, textureImageView, nullptr);
+    for (auto actor : actorGraph) {
+        vkDestroyImageView(device, actor.second.textureImageView, nullptr);
+    }
 
     vkDestroyImage(device, textureImage, nullptr);
     vkFreeMemory(device, textureImageMemory, nullptr);
@@ -273,7 +280,10 @@ void VulkanRenderer::recreateSwapChain() {
     createUniformBuffers(sizeof(GlobalLightUBO), globalLightBuffers);
 
     createDescriptorPool();
+
     createDescriptorSets();
+    //createDescriptorSets(actorGraph["1"].descriptorSets);
+
     createCommandBuffers();
     updateCommandBuffers();
 }
@@ -788,7 +798,7 @@ bool VulkanRenderer::hasStencilComponent(VkFormat format) {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
-void VulkanRenderer::createTextureImage(std::string filename_) {
+void VulkanRenderer::createTextureImage(std::string filename_, VkImageView &textureImageView) {
     SDL_Surface* image = IMG_Load(filename_.c_str()); //SDL load image
     ///image->format
     VkDeviceSize imageSize = image->w * image->h * 4; //stores only rgba textures - adding rgb textures could be a project to make the renderer better
@@ -814,11 +824,11 @@ void VulkanRenderer::createTextureImage(std::string filename_) {
     SDL_FreeSurface(image);
 
     //Make calls to set up the rest of the texture
-    createTextureImageView();
+    createTextureImageView(textureImageView);
     createTextureSampler(); //how the images is interpreted
 }
 
-void VulkanRenderer::createTextureImageView() {
+void VulkanRenderer::createTextureImageView(VkImageView& textureImageView) {
     textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
@@ -1109,7 +1119,9 @@ void VulkanRenderer::createDescriptorSets() { //make two descriptors sets for tw
     if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
+}
 
+void VulkanRenderer::updateDescriptorSets(VkImageView& textureImageView) {
     for (size_t i = 0; i < swapChainImages.size(); i++) {
         VkDescriptorBufferInfo cameraBufferInfo{};
         cameraBufferInfo.buffer = cameraBuffers[i].bufferID;
@@ -1292,6 +1304,7 @@ void VulkanRenderer::updateCommandBuffers() {
             vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &actor.second.vertexBuffer.bufferID, offsets); //&vertexBuffer.bufferID will also work, because it wants the first binding (the meshes binding)
             vkCmdBindIndexBuffer(commandBuffers[i], actor.second.indexBuffer.bufferID, 0, VK_INDEX_TYPE_UINT32);
 
+            updateDescriptorSets(actor.second.textureImageView);
             vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
 
             //vkCmdDrawIndexed is for the vertex De-duplication, we draw the indexed vertices
@@ -1370,6 +1383,9 @@ void VulkanRenderer::SetMeshPushConstant(const Matrix4& model) {
 
     actorGraph["1"].mesh.model = MMath::translate(Vec3(3.0f, 0.0f, 0.0f)) * model;
     actorGraph["1"].mesh.normal = MMath::transpose(MMath::inverse(model));
+
+    actorGraph["2"].mesh.model = MMath::translate(Vec3(-3.0f, 0.0f, 0.0f)) * model;
+    actorGraph["2"].mesh.normal = MMath::transpose(MMath::inverse(model));
 
     updateCommandBuffers(); //for updating push consts
     //push consts are very fast, but they are limited in space - 128 bytes

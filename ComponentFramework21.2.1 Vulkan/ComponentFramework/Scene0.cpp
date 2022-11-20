@@ -61,7 +61,7 @@ void Scene0::HandleEvents(const SDL_Event &sdlEvent) {
 void Scene0::Update(const float deltaTime) {
 	static float elapsedTime = 0.0f;
 	elapsedTime += deltaTime;
-	mariosModelMatrix = MMath::rotate(elapsedTime * 90.0f, Vec3(0.0f, 1.0f, 0.0f));
+	mariosModelMatrix = MMath::translate(Vec3(0.0f, 0.0f, -3.0f)) * MMath::rotate(elapsedTime * 90.0f, Vec3(0.0f, 1.0f, 0.0f));
 }
 
 void Scene0::Render() const {

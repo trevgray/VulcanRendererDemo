@@ -17,6 +17,7 @@ public:
     BufferHandle indexBuffer;
     VkDeviceSize indexBufferSize;
     //
-
+    //std::vector<VkDescriptorSet> descriptorSets;
+    VkImageView textureImageView;
 };
 

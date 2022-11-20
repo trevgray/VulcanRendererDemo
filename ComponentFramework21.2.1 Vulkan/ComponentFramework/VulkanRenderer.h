@@ -238,8 +238,8 @@ private:
     void createFramebuffers();
     void createCommandPool();
     void createDepthResources();
-    void createTextureImage(std::string filename_);
-    void createTextureImageView();
+    void createTextureImage(std::string filename_, VkImageView& textureImageView);
+    void createTextureImageView(VkImageView& textureImageView);
     void createTextureSampler();
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
         VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
@@ -250,7 +250,10 @@ private:
     void createIndexBuffer(BufferHandle& indexBuffer, std::vector<uint32_t> indices, VkDeviceSize& indexBufferSize);
     void createUniformBuffers(VkDeviceSize bufferSize, std::vector<BufferHandle>& uniformBuffer);
     void createDescriptorPool();
+
     void createDescriptorSets();
+    void updateDescriptorSets(VkImageView& textureImageView);
+
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, BufferHandle& buffer);
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void createCommandBuffers();
@@ -289,7 +292,7 @@ private:
     VkDeviceMemory textureImageMemory;
 
     //This is what is passed into the gpu
-    VkImageView textureImageView;
+    //VkImageView textureImageView;
     VkSampler textureSampler;
 
 
