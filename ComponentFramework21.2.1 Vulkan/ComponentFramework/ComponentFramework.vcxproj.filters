@@ -153,5 +153,14 @@
     <None Include="shaders\phong.vert">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="shaders\drawNormals.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\drawNormals.geom">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\drawNormals.vert">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

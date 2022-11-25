@@ -1,3 +1,7 @@
-﻿  Scene0.cpp
-  LINK : E:\GitHub\VulcanRenderDemo\ComponentFramework21.2.1 Vulkan\Debug\ComponentFramework.exe not found or not built by the last incremental link; performing full link
+﻿  Actor.cpp
+  SceneManager.cpp
+  Scene0.cpp
+  VulkanRenderer.cpp
+E:\GitHub\VulcanRenderDemo\ComponentFramework21.2.1 Vulkan\ComponentFramework\tiny_obj_loader.h(1665,27): warning C4018: '<': signed/unsigned mismatch
+  Generating Code...
   ComponentFramework.vcxproj -> E:\GitHub\VulcanRenderDemo\ComponentFramework21.2.1 Vulkan\Debug\ComponentFramework.exe

@@ -139,15 +139,15 @@ void VulkanRenderer::initVulkan() {
     createRenderPass(); //create the render pass with all the pixel information - create the buffers for the pixel info
 
     createDescriptorSetLayout(); //Sets up the location and layout for the uniforms in the shader
-    createGraphicsPipeline("shaders/phong.vert.spv", "shaders/phong.frag.spv", graphicsPipelineID); //set up a pipeline with a shader - each shader will have its own pipeline
+    createGraphicsPipeline("shaders/phong.vert.spv", "shaders/phong.frag.spv", nullptr, graphicsPipelineID); //set up a pipeline with a shader - each shader will have its own pipeline
 
     createCommandPool(); //a command pool holds command buffers
     createDepthResources(); //Figure out the depth format
     createFramebuffers(); //create a frame buffer - a point in between swap chain to the SDL window
 
-    createTextureImage("./textures/mario_mime.png", actorGraph["0"].textureImageView); //loads a image and moves it into the gpu
-    createTextureImage("./textures/skulltest.png", actorGraph["1"].textureImageView);
-    createTextureImage("./textures/mario_fire.png", actorGraph["2"].textureImageView);
+    createTextureImage("./textures/mario_mime.png", actorGraph["0"].image); //loads a image and moves it into the gpu
+    createTextureImage("./textures/skulltest.png", actorGraph["1"].image);
+    createTextureImage("./textures/trees.png", actorGraph["2"].image);
 
     //using tiny obj to load the model and preform vertex deduplication
     loadModel("./meshes/Mario.obj", actorGraph["0"].vertexBuffer, actorGraph["0"].indexBuffer, actorGraph["0"].indexBufferSize);
@@ -158,9 +158,7 @@ void VulkanRenderer::initVulkan() {
     createUniformBuffers(sizeof(GlobalLightUBO), globalLightBuffers);
 
     createDescriptorPool();
-
     createDescriptorSets();
-    //createDescriptorSets(actorGraph["1"].descriptorSets);
 
     createCommandBuffers(); //build the command buffers that are stored in the command pools - cutting the ties between gpu and cpu - build a command buffer so the cpu and gpu can work independently
     updateCommandBuffers(); //Updates the command buffers - for push consts, etc
@@ -212,23 +210,22 @@ void VulkanRenderer::cleanupUniformBuffer(std::vector<BufferHandle>& uniformBuff
 void VulkanRenderer::cleanup() {
     cleanupSwapChain();
 
-    vkDestroySampler(device, textureSampler, nullptr);
     for (auto actor : actorGraph) {
-        vkDestroyImageView(device, actor.second.textureImageView, nullptr);
-    }
-
-    vkDestroyImage(device, textureImage, nullptr);
-    vkFreeMemory(device, textureImageMemory, nullptr);
-
-    vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-
-    for (auto actor : actorGraph) {
+        //vertex and index buffer
         vkDestroyBuffer(device, actor.second.indexBuffer.bufferID, nullptr);
         vkFreeMemory(device, actor.second.indexBuffer.bufferMemoryID, nullptr);
 
         vkDestroyBuffer(device, actor.second.vertexBuffer.bufferID, nullptr);
         vkFreeMemory(device, actor.second.vertexBuffer.bufferMemoryID, nullptr);
+        //sampler
+        vkDestroySampler(device, actor.second.image.textureSampler, nullptr);
+        vkDestroyImageView(device, actor.second.image.textureImageView, nullptr);
+
+        vkDestroyImage(device, actor.second.image.textureImage, nullptr);
+        vkFreeMemory(device, actor.second.image.textureImageMemory, nullptr);
     }
+
+    vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
@@ -272,7 +269,7 @@ void VulkanRenderer::recreateSwapChain() {
     createSwapChain();
     createImageViews();
     createRenderPass();
-    createGraphicsPipeline("shaders/phong.vert.spv", "shaders/phong.frag.spv", graphicsPipelineID);
+    createGraphicsPipeline("shaders/phong.vert.spv", "shaders/phong.frag.spv", nullptr, graphicsPipelineID);
     createDepthResources();
     createFramebuffers();
 
@@ -280,9 +277,7 @@ void VulkanRenderer::recreateSwapChain() {
     createUniformBuffers(sizeof(GlobalLightUBO), globalLightBuffers);
 
     createDescriptorPool();
-
     createDescriptorSets();
-    //createDescriptorSets(actorGraph["1"].descriptorSets);
 
     createCommandBuffers();
     updateCommandBuffers();
@@ -585,13 +580,10 @@ void VulkanRenderer::createDescriptorSetLayout() { //we are informing the gpu, w
     }
 }
 
-void VulkanRenderer::createGraphicsPipeline(std::string vertFilename, std::string fragFilename, VkPipeline &graphicsPipelineRef) { //we are building the pipeline - the opengl driver had the pipeline inside it
+void VulkanRenderer::createGraphicsPipeline(const char* vertFilename, const char* fragFilename, const char* geoFilename, VkPipeline &graphicsPipelineRef) { //we are building the pipeline - the opengl driver had the pipeline inside it
     auto vertShaderCode = readFile(vertFilename); //read the shaders
-    auto fragShaderCode = readFile(fragFilename); //.spv are compiled shaders - it can still be written in glsl
-
     //a shader module is a pipeline
     VkShaderModule vertShaderModule = createShaderModule(vertShaderCode); //create a shader module - based on vert and frag code
-    VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
 
     //VkPipelineShaderStageCreateInfo are shader stages - we are making them here
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{}; //builds up a structure of VkPipelineShaderStageCreateInfo
@@ -599,6 +591,10 @@ void VulkanRenderer::createGraphicsPipeline(std::string vertFilename, std::strin
     vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT; //build on the vertex stage - all the stages are vertex assembly, vertex shader, tessellation controller, tessellation shader, geometry shader, fragment shader
     vertShaderStageInfo.module = vertShaderModule; //shader module
     vertShaderStageInfo.pName = "main"; //where does it start
+
+    auto fragShaderCode = readFile(fragFilename); //.spv are compiled shaders - it can still be written in glsl
+
+    VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
 
     VkPipelineShaderStageCreateInfo fragShaderStageInfo{}; //these set up structures for the fragment shader and vertex shader
     fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -798,7 +794,7 @@ bool VulkanRenderer::hasStencilComponent(VkFormat format) {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
-void VulkanRenderer::createTextureImage(std::string filename_, VkImageView &textureImageView) {
+void VulkanRenderer::createTextureImage(std::string filename_, Sampler2D &sampler) {
     SDL_Surface* image = IMG_Load(filename_.c_str()); //SDL load image
     ///image->format
     VkDeviceSize imageSize = image->w * image->h * 4; //stores only rgba textures - adding rgb textures could be a project to make the renderer better
@@ -808,14 +804,18 @@ void VulkanRenderer::createTextureImage(std::string filename_, VkImageView &text
 
     void* data;
     vkMapMemory(device, stagingBuffer.bufferMemoryID, 0, imageSize, 0, &data);
-    memcpy(data, image->pixels, static_cast<size_t>(imageSize));
+    memcpy(data, image->pixels, static_cast<size_t>(imageSize)); //put all the rgba values for each pixel on the gpu
     vkUnmapMemory(device, stagingBuffer.bufferMemoryID);
 
     //textureImage, textureImageMemory would be the combo of the vkimage(vkBuffer) and vkdevicememory
-    createImage(image->w, image->h, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
-    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    copyBufferToImage(stagingBuffer.bufferID, textureImage, static_cast<uint32_t>(image->w), static_cast<uint32_t>(image->h));
-    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    createImage(image->w, image->h, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, 
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, sampler.textureImage, sampler.textureImageMemory); //covert the image to UV coords
+
+    //Convert the buffer into a image - transfer the image data into the proper area in the ram where the image needs to be
+    //process the image on the gpu      rgba format (1 byte of each)
+    transitionImageLayout(sampler.textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    copyBufferToImage(stagingBuffer.bufferID, sampler.textureImage, static_cast<uint32_t>(image->w), static_cast<uint32_t>(image->h));
+    transitionImageLayout(sampler.textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     //Clean up the buffers
     vkDestroyBuffer(device, stagingBuffer.bufferID, nullptr);
@@ -824,15 +824,17 @@ void VulkanRenderer::createTextureImage(std::string filename_, VkImageView &text
     SDL_FreeSurface(image);
 
     //Make calls to set up the rest of the texture
-    createTextureImageView(textureImageView);
-    createTextureSampler(); //how the images is interpreted
+    createTextureImageView(sampler); //creates a view of that texture
+    createTextureSampler(sampler); //how the images is interpreted
 }
 
-void VulkanRenderer::createTextureImageView(VkImageView& textureImageView) {
-    textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+void VulkanRenderer::createTextureImageView(Sampler2D& sampler) {
+    //load up a structure and let vulkan work out the image view 
+    sampler.textureImageView = createImageView(sampler.textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-void VulkanRenderer::createTextureSampler() {
+void VulkanRenderer::createTextureSampler(Sampler2D& sampler) {
+    //we do this because there is a bunch of different gpus, we want the physics properties of the card to be able to preform the graphics settings we want
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(physicalDevice, &properties);
 
@@ -840,7 +842,7 @@ void VulkanRenderer::createTextureSampler() {
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerInfo.magFilter = VK_FILTER_LINEAR;
     samplerInfo.minFilter = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT; //if we go to far (outside 0 - 1), we will wrap around
     samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     samplerInfo.anisotropyEnable = VK_TRUE;
@@ -851,7 +853,7 @@ void VulkanRenderer::createTextureSampler() {
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 
-    if (vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS) {
+    if (vkCreateSampler(device, &samplerInfo, nullptr, &sampler.textureSampler) != VK_SUCCESS) { //build the sampler on the gpu that will be used later
         throw std::runtime_error("failed to create texture sampler!");
     }
 }
@@ -1121,7 +1123,7 @@ void VulkanRenderer::createDescriptorSets() { //make two descriptors sets for tw
     }
 }
 
-void VulkanRenderer::updateDescriptorSets(VkImageView& textureImageView) {
+void VulkanRenderer::updateDescriptorSets(Sampler2D& sampler) {
     for (size_t i = 0; i < swapChainImages.size(); i++) {
         VkDescriptorBufferInfo cameraBufferInfo{};
         cameraBufferInfo.buffer = cameraBuffers[i].bufferID;
@@ -1136,8 +1138,8 @@ void VulkanRenderer::updateDescriptorSets(VkImageView& textureImageView) {
         //the 2d sampler
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = textureImageView;
-        imageInfo.sampler = textureSampler;
+        imageInfo.imageView = sampler.textureImageView;
+        imageInfo.sampler = sampler.textureSampler;
 
         std::array<VkWriteDescriptorSet, 3> descriptorWrites{}; //this is for telling the shader what is going in the descriptor sets
         //so like documentation for the shader
@@ -1295,20 +1297,22 @@ void VulkanRenderer::updateCommandBuffers() {
         VkDeviceSize offsets[] = { 0 };
 
         //probably start the loop for all the pipelines here (like have a outer loop)
-        for (auto actor : actorGraph) {
-            //Choose the pipeline and bind to it
-            vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineID);
+        for (int pipelineCount = 0; pipelineCount == 0; pipelineCount++) {
+            for (auto actor : actorGraph) {
+                //Choose the pipeline and bind to it
+                vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineID);
 
-            vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &actor.second.mesh);
-            
-            vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &actor.second.vertexBuffer.bufferID, offsets); //&vertexBuffer.bufferID will also work, because it wants the first binding (the meshes binding)
-            vkCmdBindIndexBuffer(commandBuffers[i], actor.second.indexBuffer.bufferID, 0, VK_INDEX_TYPE_UINT32);
+                vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &actor.second.mesh);
 
-            updateDescriptorSets(actor.second.textureImageView);
-            vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+                vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &actor.second.vertexBuffer.bufferID, offsets); //&vertexBuffer.bufferID will also work, because it wants the first binding (the meshes binding)
+                vkCmdBindIndexBuffer(commandBuffers[i], actor.second.indexBuffer.bufferID, 0, VK_INDEX_TYPE_UINT32);
 
-            //vkCmdDrawIndexed is for the vertex De-duplication, we draw the indexed vertices
-            vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(actor.second.indexBufferSize), 1, 0, 0, 0); //drawing the buffers
+                updateDescriptorSets(actor.second.image);
+                vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+
+                //vkCmdDrawIndexed is for the vertex De-duplication, we draw the indexed vertices
+                vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(actor.second.indexBufferSize), 1, 0, 0, 0); //drawing the buffers
+            }
         }
 
         ////////////////////SECOND MODEL

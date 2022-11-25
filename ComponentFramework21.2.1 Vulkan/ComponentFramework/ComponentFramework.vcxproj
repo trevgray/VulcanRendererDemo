@@ -161,6 +161,9 @@
     <Text Include="Graphics Game Engine_Log.txt" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shaders\drawNormals.frag" />
+    <None Include="shaders\drawNormals.geom" />
+    <None Include="shaders\drawNormals.vert" />
     <None Include="shaders\example27.frag" />
     <None Include="shaders\example27.vert" />
     <None Include="shaders\phong.frag" />

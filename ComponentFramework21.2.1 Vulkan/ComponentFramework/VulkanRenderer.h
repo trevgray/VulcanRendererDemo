@@ -26,6 +26,7 @@
 #include "GlobalLight.h"
 
 class Actor;
+struct Sampler2D;
 //#include "Actor.h"
 
 using namespace MATH;
@@ -234,13 +235,13 @@ private:
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
     void createRenderPass();
     void createDescriptorSetLayout();
-    void createGraphicsPipeline(std::string vFilename, std::string fragFilename, VkPipeline& graphicsPipelineRef);
+    void createGraphicsPipeline(const char* vFilename, const char* fragFilename, const char* geoFilename, VkPipeline& graphicsPipelineRef);
     void createFramebuffers();
     void createCommandPool();
     void createDepthResources();
-    void createTextureImage(std::string filename_, VkImageView& textureImageView);
-    void createTextureImageView(VkImageView& textureImageView);
-    void createTextureSampler();
+    void createTextureImage(std::string filename_, Sampler2D& textureImageView);
+    void createTextureImageView(Sampler2D& textureImageView);
+    void createTextureSampler(Sampler2D& sampler);
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
         VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
     void loadModel(std::string filename_, BufferHandle& vertexBuffer, BufferHandle& indexBuffer, VkDeviceSize& indexBufferSize);
@@ -252,12 +253,14 @@ private:
     void createDescriptorPool();
 
     void createDescriptorSets();
-    void updateDescriptorSets(VkImageView& textureImageView);
+    void updateDescriptorSets(Sampler2D& sampler);
 
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, BufferHandle& buffer);
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+
     void createCommandBuffers();
     void updateCommandBuffers();
+
     void createSyncObjects();
     void cleanup();
     void cleanupSwapChain();
@@ -286,14 +289,6 @@ private:
 
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
-
-    //Make a BufferHandle
-    VkImage textureImage;
-    VkDeviceMemory textureImageMemory;
-
-    //This is what is passed into the gpu
-    //VkImageView textureImageView;
-    VkSampler textureSampler;
 
 
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
