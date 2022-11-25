@@ -139,7 +139,7 @@ void VulkanRenderer::initVulkan() {
     createRenderPass(); //create the render pass with all the pixel information - create the buffers for the pixel info
 
     createDescriptorSetLayout(); //Sets up the location and layout for the uniforms in the shader
-    createGraphicsPipeline("shaders/phong.vert.spv", "shaders/phong.frag.spv", nullptr, graphicsPipelineID); //set up a pipeline with a shader - each shader will have its own pipeline
+    createGraphicsPipeline("shaders/drawNormals.vert.spv", "shaders/drawNormals.frag.spv", "shaders/drawNormals.geom.spv", graphicsPipelineID); //set up a pipeline with a shader - each shader will have its own pipeline
 
     createCommandPool(); //a command pool holds command buffers
     createDepthResources(); //Figure out the depth format
@@ -602,7 +602,19 @@ void VulkanRenderer::createGraphicsPipeline(const char* vertFilename, const char
     fragShaderStageInfo.module = fragShaderModule;
     fragShaderStageInfo.pName = "main";
 
-    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo }; //array of all shader stages
+    auto geoShaderCode = readFile(geoFilename);
+
+    VkShaderModule geoShaderModule = createShaderModule(geoShaderCode);
+
+    VkPipelineShaderStageCreateInfo geoShaderStageInfo{};
+    geoShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    geoShaderStageInfo.stage = VK_SHADER_STAGE_GEOMETRY_BIT; //put on the geometry stage
+    geoShaderStageInfo.module = geoShaderModule;
+    geoShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, geoShaderStageInfo, fragShaderStageInfo, geoShaderStageInfo };
+
+    //VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo }; //array of all shader stages
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -700,7 +712,7 @@ void VulkanRenderer::createGraphicsPipeline(const char* vertFilename, const char
 
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.stageCount = 2; //number of shader stages
+    pipelineInfo.stageCount = 3; //number of shader stages
     pipelineInfo.pStages = shaderStages;
     pipelineInfo.pVertexInputState = &vertexInputInfo;
     pipelineInfo.pInputAssemblyState = &inputAssembly;
@@ -720,6 +732,7 @@ void VulkanRenderer::createGraphicsPipeline(const char* vertFilename, const char
 
     vkDestroyShaderModule(device, fragShaderModule, nullptr);
     vkDestroyShaderModule(device, vertShaderModule, nullptr);
+    vkDestroyShaderModule(device, geoShaderModule, nullptr);
 }
 
 void VulkanRenderer::createFramebuffers() {
