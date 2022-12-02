@@ -9,8 +9,8 @@
 
 
 VulkanRenderer::VulkanRenderer() : /// Initialize all the variables
-    window(nullptr), instance(nullptr), debugMessenger(0), surface(0), commandPool(0), device(nullptr), graphicsPipelineID(0),
-    windowWidth(0), windowHeight(0), presentQueue(0), graphicsQueue(nullptr), pipelineLayout(0), renderPass(0), swapChain(0),
+    window(nullptr), instance(nullptr), debugMessenger(0), surface(0), commandPool(0), device(nullptr),
+    windowWidth(0), windowHeight(0), presentQueue(0), graphicsQueue(nullptr), renderPass(0), swapChain(0),
     swapChainExtent{}, swapChainImageFormat{} {
 
 }
@@ -139,7 +139,8 @@ void VulkanRenderer::initVulkan() {
     createRenderPass(); //create the render pass with all the pixel information - create the buffers for the pixel info
 
     createDescriptorSetLayout(); //Sets up the location and layout for the uniforms in the shader
-    createGraphicsPipeline("shaders/drawNormals.vert.spv", "shaders/drawNormals.frag.spv", "shaders/drawNormals.geom.spv", graphicsPipelineID); //set up a pipeline with a shader - each shader will have its own pipeline
+    createGraphicsPipeline(pipelineGraph["Normals"], "shaders/drawNormals.vert.spv", "shaders/drawNormals.frag.spv", "shaders/drawNormals.geom.spv"); //set up a pipeline with a shader - each shader will have its own pipeline
+    createGraphicsPipeline(pipelineGraph["Phong"], "shaders/phong.vert.spv", "shaders/phong.frag.spv", nullptr);
 
     createCommandPool(); //a command pool holds command buffers
     createDepthResources(); //Figure out the depth format
@@ -176,8 +177,11 @@ void VulkanRenderer::cleanupSwapChain() {
 
     vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 
-    vkDestroyPipeline(device, graphicsPipelineID, nullptr); //kill all the pipelines
-    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+    for (auto pipeline : pipelineGraph) {
+        vkDestroyPipeline(device, pipeline.second.graphicsPipelineID, nullptr); //kill all the pipelines
+        vkDestroyPipelineLayout(device, pipeline.second.pipelineLayout, nullptr);
+    }
+
     vkDestroyRenderPass(device, renderPass, nullptr);
 
     for (auto imageView : swapChainImageViews) {
@@ -269,7 +273,10 @@ void VulkanRenderer::recreateSwapChain() {
     createSwapChain();
     createImageViews();
     createRenderPass();
-    createGraphicsPipeline("shaders/phong.vert.spv", "shaders/phong.frag.spv", nullptr, graphicsPipelineID);
+
+    createGraphicsPipeline(pipelineGraph["Normals"], "shaders/drawNormals.vert.spv", "shaders/drawNormals.frag.spv", "shaders/drawNormals.geom.spv"); //set up a pipeline with a shader - each shader will have its own pipeline
+    createGraphicsPipeline(pipelineGraph["Phong"], "shaders/phong.vert.spv", "shaders/phong.frag.spv", nullptr);
+
     createDepthResources();
     createFramebuffers();
 
@@ -550,7 +557,8 @@ void VulkanRenderer::createDescriptorSetLayout() { //we are informing the gpu, w
     cameraBinding.descriptorCount = 1; //1 thing in the binding
     cameraBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; //what type of thing is it
     cameraBinding.pImmutableSamplers = nullptr; //Immutable means unchangeable - we can put samplers on it
-    cameraBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; //what stage does this apply too
+    cameraBinding.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS; //what stage does this apply too
+    //VK_SHADER_STAGE_VERTEX_BIT is the vert shader
 
     VkDescriptorSetLayoutBinding sampler2DBinding{}; //setting up memory locations for the texture (textureMap)
     sampler2DBinding.binding = 1;
@@ -580,11 +588,13 @@ void VulkanRenderer::createDescriptorSetLayout() { //we are informing the gpu, w
     }
 }
 
-void VulkanRenderer::createGraphicsPipeline(const char* vertFilename, const char* fragFilename, const char* geoFilename, VkPipeline &graphicsPipelineRef) { //we are building the pipeline - the opengl driver had the pipeline inside it
+void VulkanRenderer::createGraphicsPipeline(Pipeline& pipelineRef, const char* vertFilename, const char* fragFilename, const char* geoFilename) { //we are building the pipeline - the opengl driver had the pipeline inside it
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+    VkShaderModule vertShaderModule = 0, fragShaderModule = 0, geoShaderModule = 0;
+
     auto vertShaderCode = readFile(vertFilename); //read the shaders
     //a shader module is a pipeline
-    VkShaderModule vertShaderModule = createShaderModule(vertShaderCode); //create a shader module - based on vert and frag code
-
+    vertShaderModule = createShaderModule(vertShaderCode); //create a shader module - based on vert and frag code
     //VkPipelineShaderStageCreateInfo are shader stages - we are making them here
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{}; //builds up a structure of VkPipelineShaderStageCreateInfo
     vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO; //always put the type in
@@ -592,27 +602,29 @@ void VulkanRenderer::createGraphicsPipeline(const char* vertFilename, const char
     vertShaderStageInfo.module = vertShaderModule; //shader module
     vertShaderStageInfo.pName = "main"; //where does it start
 
+    shaderStages.push_back(vertShaderStageInfo);
+
     auto fragShaderCode = readFile(fragFilename); //.spv are compiled shaders - it can still be written in glsl
-
-    VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
-
+    fragShaderModule = createShaderModule(fragShaderCode); //It is a vector of chars
     VkPipelineShaderStageCreateInfo fragShaderStageInfo{}; //these set up structures for the fragment shader and vertex shader
     fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT; //put on the frag stage
     fragShaderStageInfo.module = fragShaderModule;
     fragShaderStageInfo.pName = "main";
 
-    auto geoShaderCode = readFile(geoFilename);
+    shaderStages.push_back(fragShaderStageInfo);
 
-    VkShaderModule geoShaderModule = createShaderModule(geoShaderCode);
+    if (geoFilename != nullptr) {
+        auto geoShaderCode = readFile(geoFilename);
+        geoShaderModule = createShaderModule(geoShaderCode);
+        VkPipelineShaderStageCreateInfo geoShaderStageInfo{};
+        geoShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        geoShaderStageInfo.stage = VK_SHADER_STAGE_GEOMETRY_BIT; //put on the geometry stage
+        geoShaderStageInfo.module = geoShaderModule;
+        geoShaderStageInfo.pName = "main";
 
-    VkPipelineShaderStageCreateInfo geoShaderStageInfo{};
-    geoShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    geoShaderStageInfo.stage = VK_SHADER_STAGE_GEOMETRY_BIT; //put on the geometry stage
-    geoShaderStageInfo.module = geoShaderModule;
-    geoShaderStageInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, geoShaderStageInfo, fragShaderStageInfo, geoShaderStageInfo };
+        shaderStages.push_back(geoShaderStageInfo);
+    }
 
     //VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo }; //array of all shader stages
 
@@ -620,7 +632,7 @@ void VulkanRenderer::createGraphicsPipeline(const char* vertFilename, const char
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
     //Set up where the memory is all laid out
-    auto bindingDescription = Vertex::getBindingDescription(); 
+    auto bindingDescription = Vertex::getBindingDescription(); //where we are going to bind things
     auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
     vertexInputInfo.vertexBindingDescriptionCount = 1; //num of objects
@@ -706,14 +718,14 @@ void VulkanRenderer::createGraphicsPipeline(const char* vertFilename, const char
     pipelineLayoutInfo.pushConstantRangeCount = 1; //num of them
     pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
 
-    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) { //this makes the pipeline
+    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineRef.pipelineLayout) != VK_SUCCESS) { //this makes the pipeline
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.stageCount = 3; //number of shader stages
-    pipelineInfo.pStages = shaderStages;
+    pipelineInfo.stageCount = shaderStages.size(); //number of shader stages
+    pipelineInfo.pStages = shaderStages.data();
     pipelineInfo.pVertexInputState = &vertexInputInfo;
     pipelineInfo.pInputAssemblyState = &inputAssembly;
     pipelineInfo.pViewportState = &viewportState;
@@ -721,18 +733,24 @@ void VulkanRenderer::createGraphicsPipeline(const char* vertFilename, const char
     pipelineInfo.pMultisampleState = &multisampling;
     pipelineInfo.pDepthStencilState = &depthStencil;
     pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.layout = pipelineRef.pipelineLayout;
     pipelineInfo.renderPass = renderPass;
     pipelineInfo.subpass = 0;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipelineRef) != VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipelineRef.graphicsPipelineID) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
     }
 
-    vkDestroyShaderModule(device, fragShaderModule, nullptr);
-    vkDestroyShaderModule(device, vertShaderModule, nullptr);
-    vkDestroyShaderModule(device, geoShaderModule, nullptr);
+    if (fragShaderModule != 0) {
+        vkDestroyShaderModule(device, fragShaderModule, nullptr);
+    }
+    if (vertShaderModule != 0) {
+        vkDestroyShaderModule(device, vertShaderModule, nullptr);
+    }
+    if (geoShaderModule != 0) { 
+        vkDestroyShaderModule(device, geoShaderModule, nullptr); 
+    }
 }
 
 void VulkanRenderer::createFramebuffers() {
@@ -1310,18 +1328,18 @@ void VulkanRenderer::updateCommandBuffers() {
         VkDeviceSize offsets[] = { 0 };
 
         //probably start the loop for all the pipelines here (like have a outer loop)
-        for (int pipelineCount = 0; pipelineCount == 0; pipelineCount++) {
+        for (auto pipeline : pipelineGraph) {
             for (auto actor : actorGraph) {
                 //Choose the pipeline and bind to it
-                vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineID);
+                vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.second.graphicsPipelineID);
 
-                vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &actor.second.mesh);
+                vkCmdPushConstants(commandBuffers[i], pipeline.second.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &actor.second.mesh);
 
                 vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &actor.second.vertexBuffer.bufferID, offsets); //&vertexBuffer.bufferID will also work, because it wants the first binding (the meshes binding)
                 vkCmdBindIndexBuffer(commandBuffers[i], actor.second.indexBuffer.bufferID, 0, VK_INDEX_TYPE_UINT32);
 
                 updateDescriptorSets(actor.second.image);
-                vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+                vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.second.pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
 
                 //vkCmdDrawIndexed is for the vertex De-duplication, we draw the indexed vertices
                 vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(actor.second.indexBufferSize), 1, 0, 0, 0); //drawing the buffers
@@ -1372,6 +1390,9 @@ void VulkanRenderer::SetCameraUBO(const Matrix4& projection, const Matrix4& view
     cameraUBO.proj = projection;
     cameraUBO.proj[5] *= -1.0f;
     cameraUBO.view = view;
+
+    cameraUBO.normalLength = 0.1f;
+    cameraUBO.normalColour = Vec4(1.0f, 0.0f, 1.0f, 0.0f);
 }
 
 //void VulkanRenderer::SetGlobalLightUBO(const Vec4 lightArray_[4], const Vec4 colourArray_[4]) {

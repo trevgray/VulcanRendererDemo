@@ -118,6 +118,11 @@ struct QueueFamilyIndices {
         };
     }
 
+struct Pipeline {
+    VkPipelineLayout pipelineLayout;
+    VkPipeline graphicsPipelineID;
+};
+
 struct BufferHandle {
     //Create a BufferHandle - a BufferHandle has the buffer struct and device memory
     //A VkBuffer is the handle to the buffer - its a ID
@@ -130,6 +135,8 @@ struct BufferHandle {
 struct CameraUBO {
     Matrix4 view;
     Matrix4 proj;
+    Vec4 normalColour;
+    float normalLength;
 };
 
 //struct GlobalLightUBO {
@@ -158,6 +165,8 @@ public:
 
     void SetMeshPushConstant(const Matrix4& model);
 
+    void createTextureImage(std::string filename_, Sampler2D& textureImageView);
+
     template<typename UniformBuffer> void updateUniformBuffers(UniformBuffer memoryObject, uint32_t currentImage, std::vector<BufferHandle> buffer, size_t bufferSize) {
         void* data; //set a void pointer to store the data location inside the gpu - void pointer is a pointer to anything
         //uniformBuffersMemory[currentImage] stores the current image(buffer) that we want to work on
@@ -171,11 +180,11 @@ public:
         return window;
     }
 
+    std::unordered_map<std::string, Actor> actorGraph;
+
 private:
     CameraUBO cameraUBO;
     GlobalLightUBO globalLightUBO;
-
-    std::unordered_map<std::string, Actor> actorGraph;
 
     const size_t MAX_FRAMES_IN_FLIGHT = 2; //double buffering
 
@@ -190,8 +199,9 @@ private:
     VkDevice device;
     VkRenderPass renderPass;
     VkDescriptorSetLayout descriptorSetLayout;
-    VkPipelineLayout pipelineLayout;
-    VkPipeline graphicsPipelineID; //maybe make a unordered map of them
+
+    std::unordered_map<std::string, Pipeline> pipelineGraph;
+    //VkPipeline graphicsPipelineID; //maybe make a unordered map of them
 
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
@@ -235,11 +245,11 @@ private:
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
     void createRenderPass();
     void createDescriptorSetLayout();
-    void createGraphicsPipeline(const char* vFilename, const char* fragFilename, const char* geoFilename, VkPipeline& graphicsPipelineRef);
+    void createGraphicsPipeline(Pipeline& pipelineRef, const char* vFilename, const char* fragFilename, const char* geoFilename);
     void createFramebuffers();
     void createCommandPool();
     void createDepthResources();
-    void createTextureImage(std::string filename_, Sampler2D& textureImageView);
+    //void createTextureImage(std::string filename_, Sampler2D& textureImageView);
     void createTextureImageView(Sampler2D& textureImageView);
     void createTextureSampler(Sampler2D& sampler);
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,

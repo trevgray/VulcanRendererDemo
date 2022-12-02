@@ -8,17 +8,16 @@ layout (line_strip, max_vertices = 2) out; //bringing out lines
 layout (std140, binding = 0) uniform CameraUBO {
     mat4 view;
     mat4 proj;
+    vec4 normalColour;
+    float normalLength;
 } cameraUBO;
-
 
 layout (location = 0) in VertexStage { //pushed from the vert stage
     vec3 normal;
 } vs_in[];
 
-
-
 void main() {
-    float length  = 0.01;
+    float length = cameraUBO.normalLength;
     for(int index = 0; index < 3; index++){
         //Its now also * projection, because we want the one point to be in NDC coords
         gl_Position = cameraUBO.proj * gl_in[index].gl_Position; //glin[0].gl_Position is the first point in the triangle we set in the vert - its the array of the vertices of the triangle

@@ -7,6 +7,8 @@
 #include "VulkanRenderer.h"
 #include "Camera.h"
 
+#include "Actor.h"
+
 Scene0::Scene0(Renderer *renderer_): 
 	Scene(nullptr),renderer(renderer_){
 	camera = new Camera();
@@ -59,9 +61,17 @@ void Scene0::HandleEvents(const SDL_Event &sdlEvent) {
 }
 
 void Scene0::Update(const float deltaTime) {
+	static bool textureChange = false;
 	static float elapsedTime = 0.0f;
 	elapsedTime += deltaTime;
 	mariosModelMatrix = MMath::translate(Vec3(0.0f, 0.0f, -3.0f)) * MMath::rotate(elapsedTime * 90.0f, Vec3(0.0f, 1.0f, 0.0f));
+	if (elapsedTime > 10.0f && textureChange == false) {
+		VulkanRenderer* vRenderer;
+		vRenderer = dynamic_cast<VulkanRenderer*>(renderer);
+		vRenderer->createTextureImage("./textures/mario_fire.png", vRenderer->actorGraph["0"].image);
+		textureChange = true;
+		std::cout << "Texture Change" << std::endl;
+	}
 }
 
 void Scene0::Render() const {

@@ -8,8 +8,9 @@ layout (location = 2) in vec2 texCoord;
 layout (std140, binding = 0) uniform CameraUBO {
     mat4 view;
     mat4 proj;
+    vec4 normalColour;
+    float normalLength;
 } cameraUBO;
-
 
 layout (push_constant) uniform MeshPushConstants {
 	mat4 model;
