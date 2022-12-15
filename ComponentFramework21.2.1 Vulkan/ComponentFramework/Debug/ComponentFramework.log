@@ -1,6 +1,14 @@
 ﻿  Actor.cpp
-  Scene0.cpp
+  Camera.cpp
+  Debug.cpp
+  Hash.cpp
+  OpenGLRenderer.cpp
   SceneManager.cpp
+  Main.cpp
+  MMath.cpp
+  Scene0.cpp
+  Timer.cpp
+  VMath.cpp
   VulkanRenderer.cpp
 E:\GitHub\VulcanRenderDemo\ComponentFramework21.2.1 Vulkan\ComponentFramework\tiny_obj_loader.h(1665,27): warning C4018: '<': signed/unsigned mismatch
   Generating Code...

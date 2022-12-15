@@ -177,8 +177,8 @@ void VulkanRenderer::cleanupSwapChain() {
 
     vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 
-    for (auto pipeline : pipelineGraph) {
-        vkDestroyPipeline(device, pipeline.second.graphicsPipelineID, nullptr); //kill all the pipelines
+    for (auto pipeline : pipelineGraph) { //kill all the pipelines
+        vkDestroyPipeline(device, pipeline.second.graphicsPipelineID, nullptr);
         vkDestroyPipelineLayout(device, pipeline.second.pipelineLayout, nullptr);
     }
 
@@ -1392,7 +1392,7 @@ void VulkanRenderer::SetCameraUBO(const Matrix4& projection, const Matrix4& view
     cameraUBO.view = view;
 
     cameraUBO.normalLength = 0.1f;
-    cameraUBO.normalColour = Vec4(1.0f, 0.0f, 1.0f, 0.0f);
+    cameraUBO.normalColour = Vec4(1.0f, 1.0f, 1.0f, 0.0f);
 }
 
 //void VulkanRenderer::SetGlobalLightUBO(const Vec4 lightArray_[4], const Vec4 colourArray_[4]) {
